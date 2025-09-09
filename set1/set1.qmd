@@ -1,0 +1,314 @@
+---
+title: "problem set1"
+author: "yanxinl"
+format: html
+editor: visual
+github:
+---
+
+## **Abalone Data**
+
+1.  Load abalone.data and revise column name.
+
+```{r}
+df_abalone <- read.table("./data/abalone.data", header = FALSE, sep = ",", stringsAsFactors = FALSE)
+colnames(df_abalone) <- c("Sex","Length","Diameter","Height", "Whole_weight","Shucked_weight","Viscera_weight","Shell_weight", "Rings")
+
+print(str(df_abalone))
+print(head(df_abalone))
+```
+
+2.  Report the number of observations belonging to each sex.
+
+```{r}
+table(df_abalone$Sex)
+```
+
+3.1. Which weight has the highest correlation with rings?
+
+```{r}
+weight_vars <- c("Whole_weight", "Shucked_weight", "Viscera_weight", "Shell_weight")
+correlations <- cor(df_abalone[weight_vars], df_abalone$Rings)
+print("Correlations with Rings:")
+print(correlations)
+```
+
+Shell_weight has the highest correlation with rings.
+
+3.2 For that weight, which sex has the highest correlation?
+
+```{r}
+by(df_abalone,df_abalone$Sex,function(x) cor(x$Shell_weight, x$Rings))
+```
+
+I sex has the highest correlation between Shell_weight and Rings.
+
+3.3 What are the weights of the abalone with the most rings?
+
+```{r}
+max_rings<- max(df_abalone$Rings)
+max_rings_data<-df_abalone[df_abalone$Rings == max_rings,]
+
+weight_columns<-c("Whole_weight","Shucked_weight", "Viscera_weight","Shell_weight")
+print(max_rings_data[,c("Sex",weight_columns,"Rings")])
+```
+
+The most rings is 29 and its weights are listed above.
+
+3.4 What percentage of abalones have a viscera weight larger than their shell weight?
+
+```{r}
+percentage <- mean(df_abalone$Viscera_weight > df_abalone$Shell_weight) * 100
+cat(sprintf("%.4f%% of abalones have viscera weight > shell weight", percentage))
+```
+
+4.  Create a table of correlations between weights and rings, within each sex.
+
+```{r}
+weight_vars <- c("Whole_weight", "Shucked_weight", "Viscera_weight", "Shell_weight")
+sex_levels <- unique(df_abalone$Sex)
+
+correlation_matrix <- matrix(NA, nrow = length(sex_levels), ncol = length(weight_vars),dimnames = list(sex_levels,weight_vars))
+
+for(sex in sex_levels) {
+  subset_data <- df_abalone[df_abalone$Sex == sex, ]
+  for(weight in weight_vars) {
+    correlation_matrix[sex, weight] <- cor(subset_data[[weight]], subset_data$Rings)
+  }
+}
+
+print(round(correlation_matrix, 4))
+```
+
+5.  Carry out a series of t-tests to examine whether the number of rings differs across the three sexes.
+
+```{r}
+female_rings <- df_abalone$Rings[df_abalone$Sex == "F"]
+infant_rings <- df_abalone$Rings[df_abalone$Sex == "I"] 
+male_rings <-df_abalone$Rings[df_abalone$Sex == "M"]
+
+cat("\n1. FEMALE vs INFANT:\n")
+test_F_I <- t.test(female_rings,infant_rings,var.equal = FALSE)
+print(test_F_I)
+
+cat("\n2. FEMALE vs MALE:\n")
+test_F_M <- t.test(female_rings,male_rings,var.equal = FALSE)
+print(test_F_M)
+
+cat("\n3. INFANT vs MALE:\n")
+test_I_M <- t.test(infant_rings,male_rings,var.equal = FALSE)
+print(test_I_M)
+
+```
+
+It is significant that the number of rings differs across the three sexes.
+
+## **Food Expenditure**
+
+a\. Load data frame
+
+```{r}
+df_food <- read.csv("./data/food_expenditure.csv", stringsAsFactors = FALSE)
+
+str(df_food)
+head(df_food)
+```
+
+b\. Rename the columns
+
+```{r}
+names(df_food) <- c("id", "age", "individuals", "state", "currency", "exp_lw", "exp_total", "exp_out", "exp_miscell", "dine_out", "alcohol", "prog")
+
+print(df_food)
+```
+
+c\. Restrict the data to those paying in US dollars (USD).
+
+```{r}
+df_usd <- df_food[df_food$currency == "USD", ]
+print(df_usd)
+```
+
+d\. The variable related to age is above 18.
+
+```{r}
+df_clean <- df_usd
+df_clean <- df_clean[df_clean$age > 18 & !is.na(df_clean$age), ]
+print(df_clean)
+```
+
+e\. The variable related to state is limited within The West Coast.
+
+```{r}
+west_coast_states <- c("CA","OR","WA","AK")
+
+df_clean <- df_clean[df_clean$state %in% west_coast_states, ]
+print(df_clean)
+```
+
+f\. The minimum of four variables related to food expenditures should be deleted.
+
+```{r}
+food_vars <- c("exp_lw", "exp_total", "exp_out", "dine_out")
+rows_to_remove <- c()
+for(var in food_vars) {
+  if(is.numeric(df_clean[[var]])) {
+    var_data <- df_clean[[var]]
+    min_val <- min(var_data, na.rm = TRUE)
+    min_rows <- which(var_data == min_val & !is.na(var_data))
+    
+    if(length(min_rows) > 0) {
+      rows_to_remove <- c(rows_to_remove, min_rows[1])
+    }
+  }
+}
+print(df_clean)
+```
+
+g\. Show the distribution of the variables related to number of times dining out.
+
+```{r}
+print(summary(df_clean$dine_out))
+```
+
+h\. Report your final number of observations after this cleaning.
+
+```{r}
+if(exists("df_usd")) {
+  original_count <- nrow(df_usd)
+  cat("Original data:", original_count, "\n")
+  retention_rate <- round(nrow(df_clean) / original_count * 100, 2)
+  cat("Transformed data:", nrow(df_clean), "\n")
+  cat("Rate:", retention_rate, "%\n")
+}
+```
+
+##   **Collatz conjecture**
+
+a\. Write function nextCollatz that given a positive integer, computes the next number in its Collatz sequence. 
+
+```{r}
+
+nextCollatz <- function(n) {
+  
+  if (missing(n)) {
+    stop("Error: Input argument 'n' is required")}
+  
+  if (!is.numeric(n)) {
+    stop("Error: Input must be a numeric value")}
+  
+  if (length(n) != 1) {
+    stop("Error: Input must be a single numeric value, not a vector")}
+  if (!is.finite(n)) {
+    stop("Error: Input must be a finite number (not NA, NaN, or Inf)")}
+  
+  if (n <= 0) {
+    stop("Error: Input must be a positive integer (greater than 0)")}
+  n <- as.integer(round(n))
+  if (n %% 2 == 0) {
+    result <- n / 2
+  } else {
+    result <- 3 * n + 1
+  }
+  return(as.integer(result))
+}
+
+nextCollatz(5)
+
+nextCollatz(16)
+
+```
+
+b\. Create a function collatzSequence that returns the Collatz sequence for given input.
+
+```{r}
+collatzSequence <- function(n, max_iterations = 1000) {
+
+  if (missing(n)) {
+    stop("Error: Input argument 'n' is required")
+  }
+  
+  if (!is.numeric(n)) {
+    stop("Error: Input must be a numeric value")
+  }
+  
+  if (length(n) != 1) {
+    stop("Error: Input must be a single numeric value, not a vector")
+  }
+  
+  if (!is.finite(n)) {
+    stop("Error: Input must be a finite number (not NA, NaN, or Inf)")
+  }
+  
+  if (n <= 0) {
+    stop("Error: Input must be a positive integer (greater than 0)")
+  }
+  
+  if (abs(n - round(n)) > .Machine$double.eps^0.5) {
+    stop("Error: Input must be an integer")
+  }
+  
+  if (!is.numeric(max_iterations) || length(max_iterations) != 1 || 
+      !is.finite(max_iterations) || max_iterations <= 0) {
+    stop("Error: max_iterations must be a positive finite number")
+  }
+  
+  n <- as.integer(round(n))
+  max_iterations <- as.integer(round(max_iterations))
+ 
+  sequence <- numeric(0) 
+  current <- n
+  iterations <- 0
+  
+
+  while (current != 1 && iterations < max_iterations) {
+    sequence <- c(sequence, current)
+    current <- nextCollatz(current)
+    iterations <- iterations + 1
+  }
+  
+  sequence <- c(sequence, 1)
+
+  if (iterations >= max_iterations) {
+    stop(sprintf("Error: Maximum iterations (%d) exceeded.", max_iterations))
+  }
+  
+  return(list(sequence = sequence))
+}
+
+collatzSequence(5)
+
+collatzSequence(19)
+```
+
+c\. Use these functions to find the shortest and longest Collatz sequence starting with values between 100 and 500, inclusive. In the case of ties, report the lowest starting value.
+
+```{r}
+min_length <- Inf
+max_length <- 0
+shortest_start <- NA
+longest_start <- NA
+shortest_sequence <- NULL
+longest_sequence <- NULL
+
+for (start_value in 100:500) {
+  sequence <- collatzSequence(start_value)
+  length_seq <- length(sequence)
+
+  if (length_seq < min_length) {
+    min_length <- length_seq
+    shortest_start <- start_value
+    shortest_sequence <- sequence
+  }
+
+  if (length_seq > max_length) {
+    max_length <- length_seq
+    longest_start <- start_value
+    longest_sequence <- sequence
+  }
+ 
+}
+
+cat("The lowest starting value is processed up to", start_value,"\n")
+
+```
