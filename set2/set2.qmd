@@ -1,0 +1,294 @@
+---
+title: "Problem set2"
+arthur: Yanxin Luo
+format: html
+editor: visual
+---
+
+**GitHub Repository:** <https://github.com/OrangeLyx/stats506/tree/main/set1>
+
+------------------------------------------------------------------------
+
+## Problem 1
+
+a\. Implement the random walk in these three versions.
+
+```{r}
+random_walk1 <- function(n) {
+  pos <- 0
+  for (i in 1:n) {
+    step <- sample(c(-1, 1), size = 1)
+    if (step == 1) {
+      if (runif(1) < 0.05) step <- 10
+    } else {
+      if (runif(1) < 0.20) step <- -3
+    }
+    pos <- pos + step
+  }
+  return(pos)
+}
+random_walk1(10)
+random_walk1(1000)
+```
+
+```{r}
+random_walk2 <- function(n) {
+  step_func <- function(i) {
+    step <- sample(c(-1, 1), 1)
+    if (step == 1) {
+      if (runif(1) < 0.05) return(10)
+    } else {
+      if (runif(1) < 0.20) return(-3)
+    }
+    return(step)
+  }
+  sum(vapply(1:n, step_func, numeric(1)))
+}
+
+
+random_walk2(10)
+random_walk2(1000)
+```
+
+```{r}
+random_walk3 <- function(n) {
+  steps <- sapply(1:n, function(i) {
+    step <- sample(c(-1, 1), size = 1)
+    if (step == 1) {
+      if (runif(1) < 0.05) step <- 10
+    } else {
+      if (runif(1) < 0.20) step <- -3
+    }
+    return(step)
+  })
+  return(sum(steps))
+}
+
+random_walk3(10)
+random_walk3(1000)
+```
+
+b\. Demonstrate that the three versions can give the same result.
+
+```{r}
+set.seed(42)
+cat("Loop     (n = 10):   ", random_walk1(10), "\n")
+set.seed(42)
+cat("Vector   (n = 10):   ", random_walk2(10), "\n")
+set.seed(42)
+cat("Apply   (n = 10):   ", random_walk3(10), "\n\n")
+
+set.seed(42)
+cat("Loop     (n = 1000): ", random_walk1(1000), "\n")
+set.seed(42)
+cat("Vector   (n = 1000): ", random_walk2(1000), "\n")
+set.seed(42)
+cat("Apply   (n = 1000): ", random_walk3(1000), "\n")
+```
+
+c\. Use the microbenchmark package to clearly demonstrate the speed of the implementations.
+
+```{r}
+library(microbenchmark)
+
+cat("Benchmark for n = 1,000\n")
+bench_1000 <- microbenchmark(
+  Loop = random_walk1(1000),
+  Vectorized = random_walk2(1000),
+  Apply = random_walk3(1000),
+  times = 10L
+)
+print(bench_1000)
+cat("\n\n")
+
+cat("Benchmark for n = 100,000\n")
+bench_100000 <- microbenchmark(
+  Loop = random_walk1(100000),
+  Vectorized = random_walk2(100000),
+  Apply = random_walk3(100000),
+  times = 5L
+)
+print(bench_100000)
+```
+
+Conclusion: As n approaches infinity, 3 functions produce the same result, but with slightly different precisions.
+
+d\.
+
+```{r}
+random_walk_once <- function(n) {
+  pos <- 0
+  for (i in 1:n) {
+    step <- sample(c(-1, 1), size = 1)
+    if (step == 1 && runif(1) < 0.05) step <- 10
+    if (step == -1 && runif(1) < 0.20) step <- -3
+    pos <- pos + step
+  }
+  return(pos)
+}
+estimate_prob<- function(n_steps, n_sim = 10000) {
+  results <- replicate(n_sim, random_walk_once(n_steps))
+  prob <- mean(results == 0)
+  return(prob)
+}
+
+set.seed(41)
+prob_10   <- estimate_prob(10)
+prob_100  <- estimate_prob(100)
+prob_1000 <- estimate_prob(1000)
+
+cat("P(end=0) 10 steps:", prob_10, "\n")
+cat("P(end=0) 100 steps:", prob_100, "\n")
+cat("P(end=0) 1000 steps:", prob_1000, "\n")
+```
+
+## Problem 2
+
+```{r}
+set.seed(42)
+n_days <- 100000
+
+hours <- c(
+  rep(1, 7),        # 12am–6am → Poisson(1)
+  NA,               # 8am → Normal(60, 12)
+  rep(8, 8),        # 9am–4pm → Poisson(8)
+  NA,               # 5pm → Normal(60, 12)
+  rep(12, 6)        # 6pm–11pm → Poisson(12)
+)
+
+poisson_part <- vapply(hours, function(lambda) {
+  if (!is.na(lambda)) rpois(n_days, lambda) else rep(NA, n_days)
+}, numeric(n_days))
+
+normal_part <- matrix(NA, nrow = n_days, ncol = 24)
+normal_part[, 8]  <- rnorm(n_days, mean = 60, sd = sqrt(12))
+normal_part[, 17] <- rnorm(n_days, mean = 60, sd = sqrt(12))
+
+all_hours <- ifelse(is.na(poisson_part), normal_part, poisson_part)
+
+daily_totals <- rowSums(all_hours)
+mean(daily_totals)
+```
+
+## Problem 3
+
+Download the data.
+
+```{r}
+youtube <- read.csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-03-02/youtube.csv')
+```
+
+a\. Report the dimensions of the data after removing these columns.
+
+```{r}
+head(youtube)
+```
+
+```{r}
+youtube_clean <- youtube[
+  , !(names(youtube) %in% c(
+    "brand", "superbowl_ads_dot_com_url", "youtube_url", "id", "etag",
+    "title", "published_at", "thumbnail", "description","kind"
+  ))
+]
+head(youtube_clean)
+```
+
+b\. For each of the following variables, examine their distribution.
+
+```{r}
+vars <- c("view_count", "like_count", "dislike_count", "favorite_count", "comment_count")
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(tidyr)  
+library(scales)
+
+
+youtube %>%
+  select(all_of(vars)) %>%
+  pivot_longer(cols = everything()) %>%
+  ggplot(aes(x = value + 1)) +
+  geom_histogram(bins = 50, fill = "steelblue", color = "white") +
+  facet_wrap(~ name, scales = "free") +
+  scale_x_log10(labels = comma) +
+  labs(title = "Distributions of YouTube Metrics (log scale)", x = "Value (log10)", y = "Count")
+
+```
+
+```{r}
+
+youtube_clean %>%
+  select(all_of(vars)) %>%
+  pivot_longer(cols = everything()) %>%
+  ggplot(aes(x = value)) +
+  geom_histogram(bins = 50, fill = "tomato", color = "white") +
+  facet_wrap(~ name, scales = "free") +
+  labs(title = "Raw Distributions of YouTube Metrics (Linear Scale)",
+       x = "Raw Value", y = "Count")
+
+```
+
+Views_count fails in 2. Discount_count fails in 2. favorite_count fails in 3 . Like_count fails in 2 . Dislike_count fails in 2.
+
+c\.
+
+```{r}
+youtube_clean <- youtube_clean %>%
+  mutate(
+    log_view_count     = log1p(view_count),
+    log_like_count     = log1p(like_count),
+    log_dislike_count  = log1p(dislike_count),
+    log_comment_count  = log1p(comment_count)
+  )
+
+
+str(youtube_clean[, c("year", "funny", "patriotic", "celebrity", "danger", "animals", "use_sex", "show_product_quickly")])
+
+models <- list(
+  view = lm(log_view_count ~ funny + patriotic + celebrity + danger + animals + use_sex + show_product_quickly + year, data = youtube_clean),
+  like = lm(log_like_count ~ funny + patriotic + celebrity + danger + animals + use_sex + show_product_quickly + year, data =youtube_clean),
+  dislike = lm(log_dislike_count ~ funny + patriotic + celebrity + danger + animals + use_sex + show_product_quickly + year, data = youtube_clean),
+  comment = lm(log_comment_count ~ funny + patriotic + celebrity + danger + animals + use_sex + show_product_quickly + year, data = youtube_clean)
+)
+
+
+summary(models$view)
+summary(models$like)
+summary(models$dislike)
+summary(models$comment)
+```
+
+R-squared log_view_count is 0.02694.
+
+R-squared log_like_count is 0.07313.
+
+R-squared log_dislike_count is 0.09753.
+
+R-squared log_comment_count is 0.06535.
+
+These linear models have low explanatory power for predicting video metrics.
+
+d\. Calculated $\hat{\beta}$ manually.
+
+```{r}
+youtube_clean$log_view_count <- log1p(youtube_clean$view_count)
+
+predictors <- c("funny", "patriotic", "celebrity", "danger", "animals", "use_sex", "show_product_quickly", "year")
+
+data_model <- youtube_clean %>%select(log_view_count,all_of(predictors)) %>%na.omit()
+
+X <- model.matrix(~ .,data=data_model[,-1])
+y <- data_model$log_view_count
+
+beta_hat <- solve(t(X) %*% X) %*% t(X) %*% y
+
+lm_model <- lm(log_view_count ~ funny + patriotic + celebrity + danger +animals + use_sex + show_product_quickly + year,data = youtube_clean)
+
+cbind(
+  Manual = as.vector(beta_hat),
+  lm = coef(lm_model)
+)
+```
