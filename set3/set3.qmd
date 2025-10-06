@@ -1,0 +1,470 @@
+---
+title: "Problem Set 3"
+arthur: Yanxin Luo
+format: html
+editor: visual
+output: 
+  html_document: 
+    self_contained: true 
+---
+
+## Problem 1
+
+a\. Merge two .xpt file into dataframe.
+
+```{r}
+library(haven)
+library(dplyr)
+auc_data <- read_xpt("data/AUX_I.xpt")
+demo_data <- read_xpt("data/DEMO_I.xpt")
+
+cat("AUC_I.xpt dimension: ", dim(auc_data), "\n")
+cat("DEMO_I.xpt dimension: ", dim(demo_data), "\n")
+```
+
+```{r}
+merged_data <- inner_join(auc_data, demo_data, by = "SEQN")
+cat("Merged dimension: ", dim(merged_data), "\n")
+```
+
+b\.
+
+```{r}
+income_levels <- c(
+    "$0 to $4,999", "$5,000 to $9,999", "$10,000 to $14,999",
+    "$15,000 to $19,999", "$20,000 to $24,999", "$25,000 to $34,999",
+    "$35,000 to $44,999", "$45,000 to $54,999", "$55,000 to $64,999",
+    "$65,000 to $74,999", "$75,000 to $99,999", "$100,000 and Over"
+)
+
+subset_data <- merged_data %>%
+  select(
+    SEQN,       
+    RIAGENDR,   
+    DMDCITZN,    
+    DMDHHSZA,    
+    INDHHIN2     
+  ) %>%
+  mutate(
+    RIAGENDR = case_when(
+      RIAGENDR == 1 ~ "Male",
+      RIAGENDR == 2 ~ "Female",
+      TRUE ~ NA_character_
+    ),
+    
+
+    DMDCITZN = case_when(
+      DMDCITZN == 1 ~ "Citizen",
+      DMDCITZN == 2 ~ "Not Citizen",
+      DMDCITZN %in% c(7, 9) ~ NA_character_,
+      TRUE ~ NA_character_
+    ),
+    
+    DMDHHSZA = case_when(
+      DMDHHSZA %in% 0:4 ~ as.numeric(DMDHHSZA), 
+      DMDHHSZA %in% c(77, 99) ~ NA_real_,       
+      TRUE ~ NA_real_ 
+    ),
+    
+  
+    INDHHIN2 = case_when(
+      is.na(INDHHIN2) | INDHHIN2 %in% c(77, 99) ~ NA_character_, 
+      
+
+      INDHHIN2 == 1 ~ "$0 to $4,999",
+      INDHHIN2 == 2 ~ "$5,000 to $9,999",
+      INDHHIN2 == 3 ~ "$10,000 to $14,999",
+      INDHHIN2 == 4 ~ "$15,000 to $19,999",
+      INDHHIN2 == 5 ~ "$20,000 to $24,999",
+      INDHHIN2 == 6 ~ "$25,000 to $34,999",
+      INDHHIN2 == 7 ~ "$35,000 to $44,999",
+      INDHHIN2 == 8 ~ "$45,000 to $54,999",
+      INDHHIN2 == 9 ~ "$55,000 to $64,999",
+      INDHHIN2 == 10 ~ "$65,000 to $74,999",
+      INDHHIN2 == 14 ~ "$75,000 to $99,999",
+      INDHHIN2 == 15 ~ "$100,000 and Over",
+      TRUE ~ NA_character_ 
+    )
+  ) %>%
+  mutate(
+    RIAGENDR = factor(RIAGENDR),
+    DMDCITZN = factor(DMDCITZN),
+    INDHHIN2 = factor(INDHHIN2, levels = income_levels, ordered = TRUE)
+  )
+
+
+cat("Cleaned dataset:\n")
+print(str(subset_data))
+cat("\nINDHHIN2 factor level:\n")
+print(levels(subset_data$INDHHIN2))
+cat("\n First 6 rows:\n")
+print(head(subset_data))
+```
+
+c\. Produce a table presenting the estimated incidence risk ratios for the coefficients in each model.
+
+```{r}
+modeling_data <- merged_data %>%
+  select(
+    SEQN, RIAGENDR, DMDCITZN, DMDHHSZA, INDHHIN2, AUXTWIDR, AUXTCOML    
+  ) %>%
+  mutate(
+    AUXTWIDR = ifelse(AUXTWIDR %in% c(777, 888), NA, AUXTWIDR),
+    AUXTCOML =  ifelse(AUXTCOML %in% c(777, 888), NA, AUXTCOML), 
+
+    RIAGENDR = case_when(RIAGENDR == 1 ~ "Male", RIAGENDR == 2 ~ "Female", TRUE ~ NA_character_),
+    DMDCITZN = case_when(DMDCITZN == 1 ~ "Citizen", DMDCITZN == 2 ~ "Not Citizen", DMDCITZN %in% c(7, 9) ~ NA_character_, TRUE ~ NA_character_),
+    DMDHHSZA_cont = case_when(DMDHHSZA %in% 0:4 ~ as.numeric(DMDHHSZA), DMDHHSZA %in% c(77, 99) ~ NA_real_, TRUE ~ NA_real_),
+    
+    INDHHIN2_cont = case_when(
+      is.na(INDHHIN2) | INDHHIN2 %in% c(77, 99) ~ NA_real_,
+      INDHHIN2 == 1 ~ 1,  INDHHIN2 == 2 ~ 2,  INDHHIN2 == 3 ~ 3,  INDHHIN2 == 4 ~ 4,  INDHHIN2 == 5 ~ 5,
+      INDHHIN2 == 6 ~ 6,  INDHHIN2 == 7 ~ 7,  INDHHIN2 == 8 ~ 8,  INDHHIN2 == 9 ~ 9,  INDHHIN2 == 10 ~ 10,
+      INDHHIN2 == 14 ~ 11, INDHHIN2 == 15 ~ 12,
+      TRUE ~ NA_real_
+    ),
+    
+    RIAGENDR = factor(RIAGENDR),
+    DMDCITZN = factor(DMDCITZN)
+  ) %>%
+  select(SEQN, AUXTWIDR, AUXTCOML, RIAGENDR, DMDCITZN, DMDHHSZA_cont, INDHHIN2_cont) %>%
+  mutate(
+      AUXTWIDR_int = round(AUXTWIDR) 
+  )
+
+```
+
+```{r}
+model_1R <- glm(AUXTWIDR_int ~ RIAGENDR, data = modeling_data, family = poisson(link = "log"))
+model_2R <- glm(AUXTWIDR_int ~ RIAGENDR + DMDCITZN + DMDHHSZA_cont + INDHHIN2_cont, data = modeling_data, family = poisson(link = "log"))
+
+model_1L <- lm(AUXTCOML ~ RIAGENDR, data = modeling_data)
+model_2L <- lm(AUXTCOML ~ RIAGENDR + DMDCITZN + DMDHHSZA_cont + INDHHIN2_cont, data = modeling_data)
+
+models_list_mixed <- list(
+  "1R: Width (Poisson, IRR)" = model_1R,
+  "2R: Width Full (Poisson, IRR)" = model_2R,
+  "1L: Compliance (Linear, Coef)" = model_1L,
+  "2L: Compliance Full (Linear, Coef)" = model_2L
+)
+```
+
+```{r}
+library(broom)
+library(dplyr)
+library(knitr)
+library(stargazer)
+library(pscl)
+
+
+extract_model_info <- function(model, model_type) {
+  if (model_type == "poisson") {
+    tidy(model) %>%
+      mutate(
+        IRR = exp(estimate),
+        lower = exp(estimate - 1.96 * std.error),
+        upper = exp(estimate + 1.96 * std.error)
+      ) %>%
+      select(term, estimate, std.error, IRR, lower, upper, p.value)
+  } else {
+    tidy(model) %>%
+      select(term, estimate, std.error, p.value)
+  }
+}
+
+extract_model_stats <- function(model, model_type) {
+  n <- nobs(model)
+  aic <- AIC(model)
+  if (model_type == "poisson") {
+    r2 <- pR2(model)[["McFadden"]]
+  } else {
+    r2 <- summary(model)$r.squared
+  }
+  tibble(
+    N = n,
+    AIC = aic,
+    R2_or_PseudoR2 = r2
+  )
+}
+
+models_list_mixed <- list(
+  "1R: Width (Poisson, IRR)" = model_1R,
+  "2R: Width Full (Poisson, IRR)" = model_2R,
+  "1L: Compliance (Linear, Coef)" = model_1L,
+  "2L: Compliance Full (Linear, Coef)" = model_2L
+)
+
+
+coef_tables <- lapply(names(models_list_mixed), function(name) {
+  model <- models_list_mixed[[name]]
+  type <- if (grepl("Poisson", name)) "poisson" else "linear"
+  res <- extract_model_info(model, type)
+  res$model <- name
+  res
+}) %>% bind_rows()
+
+
+stats_table <- lapply(names(models_list_mixed), function(name) {
+  model <- models_list_mixed[[name]]
+  type <- if (grepl("Poisson", name)) "poisson" else "linear"
+  res <- extract_model_stats(model, type)
+  res$model <- name
+  res
+}) %>% bind_rows()
+
+
+kable(
+  coef_tables %>%
+    mutate(across(where(is.numeric), round, 3)),
+  caption = "Model Coefficients and IRRs",
+  format = "html"
+)
+
+kable(
+  stats_table %>%
+    mutate(across(where(is.numeric), round, 3)),
+  caption = "Model Fit Statistics (N, AIC, R² or Pseudo R²)",
+  format = "html"
+)
+
+```
+
+d\. Yes. There is a statistically significant difference between males and females in predicted tympanometric compliance.
+
+```{r}
+print(summary(model_2L)) 
+```
+
+The difference is statistically significant (p \< 0.05), indicating females exhibit lower tympanometric compliance than males.
+
+```{r}
+newdat <- data.frame(
+  RIAGENDR = factor(c("Male", "Female"), 
+                    levels = levels(modeling_data$RIAGENDR)),
+  DMDCITZN = factor("Citizen", 
+                    levels = levels(modeling_data$DMDCITZN)),
+  DMDHHSZA_cont = mean(modeling_data$DMDHHSZA_cont, na.rm = TRUE),
+  INDHHIN2_cont = mean(modeling_data$INDHHIN2_cont, na.rm = TRUE)
+)
+
+predict(model_2L, newdata = newdat, interval = "confidence")
+```
+
+## Problem 2 - Sakila 
+
+a\. For each store, how many customers does that store have, and what percentage of customers of that store are active in the system?
+
+```{r}
+# install.packages(c("DBI", "RSQLite", "dplyr", "microbenchmark"))
+library(DBI)
+library(RSQLite)
+library(dplyr)
+library(microbenchmark)
+```
+
+```{r}
+con <- dbConnect(SQLite(), dbname = "./data/sakila_master.db")
+head(dbListTables(con))
+```
+
+```{r}
+sql_query <- "
+SELECT 
+  store_id,
+  COUNT(*) AS total_customers,
+  SUM(active) AS active_customers,
+  ROUND(100.0 * AVG(active), 2) AS percent_active
+FROM customer
+GROUP BY store_id;
+"
+store_summary_sql <- dbGetQuery(con, sql_query)
+store_summary_sql
+```
+
+b\. Generate a table identifying the names and country of each staff member.
+
+```{r}
+sql_staff_country <- "
+SELECT 
+  s.first_name || ' ' || s.last_name AS staff_name,
+  c.country
+FROM staff s
+JOIN address a ON s.address_id = a.address_id
+JOIN city ci    ON a.city_id = ci.city_id
+JOIN country c  ON ci.country_id = c.country_id;
+"
+
+staff_country_SQL <- dbGetQuery(con, sql_staff_country)
+staff_country_SQL
+```
+
+c\. Identify the name(s) of the film(s) which was/were rented for the highest dollar value.
+
+```{r}
+sql_film_revenue <- "
+SELECT f.title,
+       SUM(p.amount) AS total_revenue
+FROM payment p
+JOIN rental r    ON p.rental_id = r.rental_id
+JOIN inventory i ON r.inventory_id = i.inventory_id
+JOIN film f      ON i.film_id = f.film_id
+GROUP BY f.title
+HAVING total_revenue = (
+  SELECT MAX(total_sum)
+  FROM (
+    SELECT SUM(p2.amount) AS total_sum
+    FROM payment p2
+    JOIN rental r2 ON p2.rental_id = r2.rental_id
+    JOIN inventory i2 ON r2.inventory_id = i2.inventory_id
+    GROUP BY i2.film_id
+  )
+);
+"
+
+film_revenue_sql <- dbGetQuery(con, sql_film_revenue)
+film_revenue_sql
+```
+
+## Problem 3 - Australian Records 
+
+a\. 0% websites are .com's.
+
+```{r}
+library(DBI)
+library(RSQLite)
+
+con <- dbConnect(SQLite(), ":memory:")
+australia <- read.csv("./data/au-500.csv", stringsAsFactors = FALSE)
+dbWriteTable(con, "australia", australia)
+dbListTables(con)
+```
+
+```{r}
+result <- dbGetQuery(con, "
+SELECT 
+  ROUND(100.0 * 
+        SUM(CASE 
+              WHEN web LIKE '%.com' AND Web NOT LIKE '%.com.au' THEN 1 
+              ELSE 0 
+            END) / COUNT(*), 2) AS percent_com
+FROM australia;
+")
+
+result
+```
+
+b\. The most common domain name amongst the email addresses.
+
+```{r}
+sql_query <- "
+SELECT
+  LOWER(SUBSTR(Email, INSTR(Email, '@') + 1)) AS domain,
+  COUNT(*) AS n
+FROM australia
+WHERE Email LIKE '%@%'
+GROUP BY domain
+ORDER BY n DESC
+LIMIT 1;
+"
+most_common_domain_sql <- dbGetQuery(con, sql_query)
+most_common_domain_sql
+```
+
+c\. 9% company names contain a non-alphabetic character, excluding commas and whitespace. 0.8% company names contain a non-alphabetic character also exclude ampersands (“&”).
+
+```{r}
+library(stringr)
+australia %>%
+  mutate(
+    has_nonalpha = str_detect(company_name, "[^A-Za-z,\\s]") 
+  ) %>%
+  summarise(
+    prop_nonalpha = round(mean(has_nonalpha, na.rm = TRUE) * 100, 2)
+  )
+
+```
+
+```{r}
+australia %>%
+  mutate(
+    has_nonalpha_noamp = str_detect(company_name, "[^A-Za-z,&\\s]")
+  ) %>%
+  summarise(
+    prop_nonalpha_noamp = round(mean(has_nonalpha_noamp, na.rm = TRUE) * 100, 2)
+  )
+
+```
+
+d\. Make all phone numbers written like cell phones.
+
+```{r}
+australia_clean <- australia %>%
+  mutate(
+    Phone1_digits = str_remove_all(`phone1`, "\\D"),
+    Phone2_digits = str_remove_all(`phone2`, "\\D"),
+
+    Phone1_formatted = str_replace(Phone1_digits, "^(\\d{4})(\\d{3})(\\d{3})$", "\\1-\\2-\\3"),
+    Phone2_formatted = str_replace(Phone2_digits, "^(\\d{4})(\\d{3})(\\d{3})$", "\\1-\\2-\\3")
+  )
+australia_clean %>%
+  select(Phone1_formatted, Phone2_formatted) %>%
+  slice_head(n = 10)
+
+```
+
+e\. Plot the histogram of log(# address).
+
+```{r}
+apartment_data <- australia %>%
+  mutate(
+    apt_number = str_extract(address, "\\d+$"),
+    apt_number = as.numeric(apt_number),
+    log_apt = log(apt_number)
+  ) %>%
+  filter(!is.na(log_apt))
+library(ggplot2)
+ggplot(apartment_data, aes(x = log_apt)) +
+  geom_histogram(binwidth = 0.25, color = "black", fill = "steelblue") +
+  labs(
+    title = "Histogram of Log (Apartment #)",
+    x = "log (Apartment #)",
+    y = "Count"
+  ) +
+  theme_minimal()
+```
+
+f\. Department \# appear to follow Bendord's law.
+
+```{r}
+apartment_data <- australia %>%
+  mutate(
+    apt_number = as.numeric(str_extract(address, "\\d+$")),
+    leading_digit = as.numeric(str_sub(as.character(apt_number), 1, 1))
+  ) %>%
+  filter(!is.na(apt_number) & apt_number > 0)
+```
+
+```{r}
+benford_expected <- data.frame(
+  leading_digit = 1:9,
+  expected = log10(1 + 1 / (1:9))
+)
+
+observed <- apartment_data %>%
+  count(leading_digit) %>%
+  mutate(observed = n / sum(n))
+
+comparison <- left_join(benford_expected, observed, by = "leading_digit")
+
+ggplot(comparison, aes(x = factor(leading_digit))) +
+  geom_bar(aes(y = observed), stat = "identity", fill = "steelblue", alpha = 0.7) +
+  geom_line(aes(y = expected), color = "pink", linewidth = 1.2, group = 1) +
+  geom_point(aes(y = expected), color = "pink", size = 2) +
+  labs(
+    title = "Observed vs. Benford Distribution",
+    x = "Leading Digit",
+    y = "Proportion"
+  ) +
+  theme_minimal()
+
+```
