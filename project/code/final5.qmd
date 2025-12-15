@@ -115,7 +115,7 @@ imp_df <- imp_df %>%
   )
 
 p_imp <- ggplot(imp_df, aes(x = reorder(feature, coef), y = coef, fill = sign)) +
-  geom_col(width = 0.5) +    # ⭐ 柱子窄一点
+  geom_col(width = 0.5) +   
   coord_flip() +
   scale_fill_manual(
     values = c("Positive" = "#1f77b4",  # 蓝色（正）
@@ -136,8 +136,8 @@ p_imp <- ggplot(imp_df, aes(x = reorder(feature, coef), y = coef, fill = sign)) 
 
 ggsave(
   "./graph/lasso_importance2.png",p_imp,
-  width = 8,    # 原图宽度
-  height = 7,  # ⭐ 加大高度
+  width = 8,  
+  height = 7,  
   dpi = 300
 )
 ```
@@ -182,8 +182,8 @@ p_rf
 
 ggsave(
   "./graph/rf_importance2.png",p_rf,
-  width = 10,    # 原图宽度
-  height = 7,  # ⭐ 加大高度
+  width = 10,   
+  height = 7, 
   dpi = 300
 )
 ```
