@@ -1,0 +1,189 @@
+---
+title: "final5"
+format: html
+---
+
+## Regression is Everything
+
+```{r}
+source("pj.R")
+
+ana_data$id <- 1:nrow(ana_data)
+names(ana_data)
+```
+
+```{r}
+
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+
+finance_y <- ana_data %>%
+  mutate(
+    y_fin2 = rowSums(select(., starts_with("Finances_2_")), na.rm = TRUE),
+    y_fin3 = rowSums(select(., starts_with("Finances_3_")), na.rm = TRUE)
+  )
+
+y <- finance_y$y_fin2    # 例）
+
+X <- finance_y %>%
+  select(
+    starts_with("GeoAreas_"),
+    starts_with("ProgDem_"),
+    starts_with("FinanceChanges_"),
+    starts_with("Funding"),
+    starts_with("FRChanges"),
+    starts_with("ProgChanges"),
+    starts_with("Reserves_1_")
+  ) %>%
+  as.matrix()
+
+
+
+
+```
+
+```{r}
+
+library(glmnet)
+X[is.na(X)] <- 0
+
+fit_lasso <- cv.glmnet(
+  x = X,
+  y = y,
+  alpha = 1,     # LASSO
+  standardize = TRUE,
+  family = "gaussian",
+  nfolds = 10
+)
+
+
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
+
+```{r}
+
+X[is.na(X)] <- 0
+
+fit_enet <- cv.glmnet(
+  x = X,
+  y = y,
+  alpha = 0.5,   # Elastic Net
+  standardize = TRUE
+)
+
+
+fit_lasso$lambda.min
+fit_lasso$lambda.1se
+```
+
+```{r}
+
+coef_lasso <- coef(fit_lasso, s = "lambda.min")
+important <- coef_lasso[coef_lasso[,1] != 0, , drop = FALSE]
+important
+
+library(ggplot2)
+
+imp_df <- data.frame(
+  feature = rownames(important)[-1],
+  coef = as.numeric(important[-1])
+)
+
+ggplot(imp_df, aes(x = reorder(feature, coef), y = coef)) +
+  geom_col() +
+  coord_flip() +
+  labs(title = "LASSO Feature Importance")
+
+ggsave(
+  "./graph/lasso_importance.png",
+  width = 8,    # 原图宽度
+  height = 7,  # ⭐ 加大高度
+  dpi = 300
+)
+
+```
+
+```{r}
+imp_df <- imp_df %>%
+  mutate(
+    sign = ifelse(coef > 0, "Positive", "Negative"),
+    coef_abs = abs(coef)
+  )
+
+p_imp <- ggplot(imp_df, aes(x = reorder(feature, coef), y = coef, fill = sign)) +
+  geom_col(width = 0.5) +    # ⭐ 柱子窄一点
+  coord_flip() +
+  scale_fill_manual(
+    values = c("Positive" = "#1f77b4",  # 蓝色（正）
+               "Negative" = "#d62728")  # 红色（负）
+  ) +
+  labs(
+    title = "LASSO Feature Importance",
+    x = "Feature",
+    y = "Coefficient",
+    fill = "Effect"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(size = 10),
+    plot.title = element_text(size = 14)
+  )
+
+
+ggsave(
+  "./graph/lasso_importance2.png",p_imp,
+  width = 8,    # 原图宽度
+  height = 7,  # ⭐ 加大高度
+  dpi = 300
+)
+```
+
+```{r}
+library(randomForest)
+fit_rf <- randomForest(X, y, ntree = 500, importance = TRUE)
+importance(fit_rf)
+
+```
+
+```{r}
+library(dplyr)
+
+imp_rf <- importance(fit_rf) %>% 
+  as.data.frame() %>%
+  mutate(feature = rownames(.)) %>%
+  arrange(desc(`%IncMSE`))
+
+imp_top20 <- imp_rf %>% slice_max(`%IncMSE`, n = 20)
+
+
+library(ggplot2)
+
+p_rf <- ggplot(imp_top20, aes(x = reorder(feature, `%IncMSE`), 
+                               y = `%IncMSE`)) +
+  geom_col(fill = "#1f77b4", width = 0.6) +
+  coord_flip() +
+  labs(
+    title = "RF Variable Importance (Top 20)",
+    x = "Feature",
+    y = "% Increase in MSE"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.y = element_text(size = 10),
+    plot.title = element_text( size = 14)
+  )
+
+p_rf
+
+
+ggsave(
+  "./graph/rf_importance2.png",p_rf,
+  width = 10,    # 原图宽度
+  height = 7,  # ⭐ 加大高度
+  dpi = 300
+)
+```

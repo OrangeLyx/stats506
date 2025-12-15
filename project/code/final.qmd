@@ -1,0 +1,1019 @@
+---
+title: "final"
+format: html
+editor: visual
+---
+
+## Data Preprocessing
+
+It will be converted into .R file and be inputted as source().
+
+```{r}
+data <- read.csv("./nonprofit-survey-spring-2021-puf.csv")
+names(data)
+```
+
+## Extracting
+
+15 attributes
+
+```{r}
+prefixes <- c("ProgChanges_", "OpsChanges_", "Assistance_", "ExtAffairs_", "NTEE_",
+              "FRchanges_","Funding","Finances_","Reserves_","FinanceChanges_",
+              "ProgDem_","PeopleServed_","MeetDemand","GeoAreas_","ProgLocations_"    ,"RuralUrban_")
+pattern <- paste0("^(", paste(prefixes, collapse="|"), ").*")
+vars <- grep(pattern, names(data), value = TRUE)
+new_data <- data[, vars]
+names(new_data)
+```
+
+```{r}
+# cleaning
+new_data[new_data== -99 |new_data == 99 | new_data == 98] <- NA
+new_data
+```
+
+```{r}
+library(dplyr)
+
+
+clean_data <- new_data %>%
+  rename(
+    cate_arts = NTEE_1,
+    cate_edu  = NTEE_2,
+    cate_envir=NTEE_3,
+    cate_animl=NTEE_4,
+    cate_heal=NTEE_5,
+    cate_mentl=NTEE_6,
+    cate_volut=NTEE_7,
+    cate_medic=NTEE_8,
+    cate_crime=NTEE_9,
+    cate_employ=NTEE_10,
+    cate_food=NTEE_11,
+    cate_housg=NTEE_12,
+    cate_public=NTEE_13,
+    cate_recret=NTEE_14,
+    cate_youth=NTEE_15,
+    cate_human=NTEE_16,
+    cate_foreign=NTEE_17,
+    cate_right=NTEE_18,
+    cate_commuty=NTEE_19,
+    cate_donate=NTEE_20,
+    cate_tech=NTEE_21,
+    cate_science=NTEE_22,
+    cate_society=NTEE_23,
+    cate_relign=NTEE_24,
+    cate_member=NTEE_25,
+  )
+
+clean_data <- clean_data %>% 
+  select(-NTEE_26)
+
+clean_data
+```
+
+```{r}
+# deleting na columns threshold 
+summary_data <- data.frame(
+  variable = names(clean_data),
+  non_na_count = sapply(clean_data, function(x) sum(!is.na(x))),
+  total_rows = nrow(clean_data)
+)
+
+summary_data$non_na_pct <- summary_data$non_na_count / summary_data$total_rows * 100
+
+summary_data$quality <- cut(
+  summary_data$non_na_pct,
+  breaks = c(-Inf, 10, 40, 70, Inf),
+  labels = c("bad data", "doubtful data", "basic data", "good data"),
+  right = FALSE
+)
+
+summary_data
+
+```
+
+```{r}
+delete_cols <- summary_data$variable[summary_data$non_na_pct < 2]
+
+delete_cols
+
+analysis_data <- clean_data %>% select(-any_of(delete_cols))
+
+analysis_data 
+```
+
+## Aggregation
+
+question 1: Chi-squared Test
+
+For given category (e.g. arts), ProgChanges\_ has significant difference with FRchanges\_.
+
+category: arts, edu, human, community (cnt\>500+)
+
+```{r}
+sub <- analysis_data  %>% filter(cate_arts == 1)
+
+tbl <- table(sub$ProgChanges_1, sub$FRchanges_1_2)
+head(tbl)
+chisq.test(tbl)
+# no significant relation between prochange_1 and frchange_1_2
+
+```
+
+```{r}
+sub <- analysis_data  %>% filter(cate_arts == 1)
+
+tbl <- table(sub$ProgChanges_1, sub$FRchanges_1_10)
+head(tbl)
+chisq.test(tbl)
+
+```
+
+```{r}
+sub <- analysis_data  %>% filter(cate_arts == 1)
+
+tbl <- table(sub$ProgChanges_1, sub$FRchanges_2_1)
+head(tbl)
+chisq.test(tbl)
+chisq.test(tbl)$stdres
+```
+
+```{r}
+sub <- analysis_data  %>% filter(cate_arts == 1)
+
+tbl <- table(sub$ProgChanges_1, sub$FRchanges_2_2)
+head(tbl)
+chisq.test(tbl)
+chisq.test(tbl)$stdres
+```
+
+```{r}
+sub <- analysis_data  %>% filter(cate_arts == 1)
+
+tbl <- table(sub$ProgChanges_1, sub$FRchanges_2_12)
+head(tbl)
+chisq.test(tbl)
+chisq.test(tbl)$stdres
+```
+
+```{r}
+sub <- analysis_data  %>% filter(cate_arts == 1)
+
+tbl <- table(sub$ProgChanges_2, sub$FRchanges_2_1)
+head(tbl)
+chisq.test(tbl)
+chisq.test(tbl)$stdres
+```
+
+```{r}
+sub <- analysis_data  %>% filter(cate_arts == 1)
+
+tbl <- table(sub$ProgChanges_2, sub$FRchanges_2_2)
+head(tbl)
+chisq.test(tbl)
+chisq.test(tbl)$stdres
+
+
+tbl <- table(sub$ProgChanges_2, sub$FRchanges_2_4)
+head(tbl)
+chisq.test(tbl)
+chisq.test(tbl)$stdres
+
+
+tbl <- table(sub$ProgChanges_2, sub$FRchanges_2_6)
+head(tbl)
+chisq.test(tbl)
+chisq.test(tbl)$stdres
+
+
+tbl <- table(sub$ProgChanges_2, sub$FRchanges_2_9)
+head(tbl)
+chisq.test(tbl)
+chisq.test(tbl)$stdres
+```
+
+```{r}
+sub <- analysis_data  %>% filter(cate_arts == 1)
+
+
+tbl <- table(sub$ProgChanges_3, sub$FRchanges_2_3)
+head(tbl)
+chisq.test(tbl)
+chisq.test(tbl)$stdres
+
+
+tbl <- table(sub$ProgChanges_3, sub$FRchanges_2_4)
+head(tbl)
+chisq.test(tbl)
+chisq.test(tbl)$stdres
+```
+
+Question 2: DID
+
+Assistance (T=0/1) has relationship with Finances\_ ?
+
+```{r}
+library(tidyr)
+library(fixest)
+
+analysis_data <- analysis_data %>%
+  mutate(org_id = dplyr::row_number())
+
+
+tb_data <- analysis_data %>%
+  pivot_longer(
+    cols = starts_with("Finances_"),
+    names_to = c("year", "source", "ignore"),
+    names_pattern = "Finances_([0-9]+)_([0-9]+)_([0-9]+)",
+    values_to = "finance_amt"
+  ) %>%
+  mutate(
+    year = case_when(
+      year == "1" ~ 2019,
+      year == "2" ~ 2020,
+      year == "3" ~ 2021
+    ),
+    category = as.numeric(category)
+  ) %>% select(-ignore)
+
+tb_data
+
+model <- feols(
+  finance_amt~ i(year, Assistance_1, ref = 2019) | org_id,
+  data = tb_data
+)
+
+summary(model)
+
+```
+
+```{r}
+
+
+analysis_data <- analysis_data %>%
+  mutate(org_id = dplyr::row_number())  
+
+tb_data <- analysis_data %>%
+  pivot_longer(
+    cols = starts_with("Finances_"),
+    names_to   = c("year_code", "source", "ignore"),
+    names_pattern = "Finances_([0-9]+)_([0-9]+)_([0-9]+)",
+    values_to  = "finance_amt"
+  ) %>%
+  mutate(
+    year = dplyr::case_when(
+      year_code == "1" ~ 2019,
+      year_code == "2" ~ 2020,
+      year_code == "3" ~ 2021,
+      TRUE ~ NA_real_
+    ),
+    source = as.numeric(source)
+  ) %>%
+  select(org_id, year, source, finance_amt, Assistance_2)  
+
+tb_source2 <- tb_data %>% filter(source == 2)
+
+table(tb_source2$Assistance_1, useNA = "ifany")
+
+model <- feols( finance_amt ~ i(year, Assistance_1, ref = 2019) | org_id, data = tb_source2 )
+
+summary(model)
+```
+
+```{r}
+tb_source7 <- tb_data %>% filter(source == 7)
+
+table(tb_source7$Assistance_1, useNA = "ifany")
+
+model <- feols(
+ finance_amt ~ i(year, Assistance_1, ref = 2019) | org_id,
+data = tb_source7 )
+
+summary(model)
+```
+
+```{r}
+
+
+```
+
+```{r}
+analysis_data <- analysis_data %>%
+  mutate(org_id = dplyr::row_number())  
+
+tb_data <- analysis_data %>%
+  pivot_longer(
+    cols = starts_with("Finances_"),
+    names_to   = c("year_code", "source", "ignore"),
+    names_pattern = "Finances_([0-9]+)_([0-9]+)_([0-9]+)",
+    values_to  = "finance_amt"
+  ) %>%
+  mutate(
+    year = dplyr::case_when(
+      year_code == "1" ~ 2019,
+      year_code == "2" ~ 2020,
+      year_code == "3" ~ 2021,
+      TRUE ~ NA_real_
+    ),
+    source = as.numeric(source)
+  ) %>%
+  select(org_id, year, source, finance_amt, Assistance_2)  
+
+tb_source <- tb_data %>% filter(source == 2)
+
+table(tb_source$Assistance_2, useNA = "ifany")
+
+model <- feols( finance_amt ~ i(year, Assistance_2, ref = 2019) | org_id, data = tb_source )
+
+summary(model)
+```
+
+```{r}
+tb_source <- tb_data %>% filter(source == 7)
+
+table(tb_source$Assistance_2, useNA = "ifany")
+
+model <- feols( finance_amt ~ i(year, Assistance_2, ref = 2019) | org_id, data = tb_source )
+
+summary(model)
+```
+
+```{r}
+
+tb_data <- analysis_data %>%
+  pivot_longer(
+    cols = starts_with("Finances_"),
+    names_to   = c("year_code", "source", "ignore"),
+    names_pattern = "Finances_([0-9]+)_([0-9]+)_([0-9]+)",
+    values_to  = "finance_amt"
+  ) %>%
+  mutate(
+    year = dplyr::case_when(
+      year_code == "1" ~ 2019,
+      year_code == "2" ~ 2020,
+      year_code == "3" ~ 2021,
+      TRUE ~ NA_real_
+    ),
+    source = as.numeric(source)
+  ) %>%
+  select(org_id, year, source, finance_amt, Assistance_3)  
+
+tb_source <- tb_data %>% filter(source == 2)
+
+table(tb_source$Assistance_3, useNA = "ifany")
+
+model <- feols( finance_amt ~ i(year, Assistance_3, ref = 2019) | org_id, data = tb_source )
+
+summary(model)
+```
+
+```{r}
+tb_source <- tb_data %>% filter(source == 3)
+
+table(tb_source$Assistance_3, useNA = "ifany")
+
+model <- feols( finance_amt ~ i(year, Assistance_3, ref = 2019) | org_id, data = tb_source )
+
+summary(model)
+```
+
+```{r}
+tb_source <- tb_data %>% filter(source == 4)
+
+table(tb_source$Assistance_3, useNA = "ifany")
+
+model <- feols( finance_amt ~ i(year, Assistance_3, ref = 2019) | org_id, data = tb_source )
+
+summary(model)
+```
+
+```{r}
+tb_source <- tb_data %>% filter(source == 8)
+
+table(tb_source$Assistance_3, useNA = "ifany")
+
+model <- feols( finance_amt ~ i(year, Assistance_3, ref = 2019) | org_id, data = tb_source )
+
+summary(model)
+```
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(fixest)
+
+analysis_data <- analysis_data %>% mutate(org_id = dplyr::row_number())
+tb_data <- analysis_data %>%
+  pivot_longer(
+    cols = starts_with("Finances_"),
+    names_to   = c("year_code", "source", "ignore"),
+    names_pattern = "Finances_([0-9]+)_([0-9]+)_([0-9]+)",
+    values_to  = "finance_amt"
+  ) %>%
+  mutate(
+    year = dplyr::case_when(
+      year_code == "1" ~ 2019,
+      year_code == "2" ~ 2020,
+      year_code == "3" ~ 2021,
+      TRUE ~ NA_real_
+    ),
+    source = as.numeric(source)
+  ) %>%
+  select(org_id, year, source, finance_amt, Assistance_1,Assistance_2,Assistance_3,Assistance_4,Assistance_5,Assistance_6,Assistance_7)  
+
+tb_source <- tb_data %>% filter(source == 5)
+
+
+model_A1 <- feols(finance_amt ~ i(year, Assistance_1, ref=2019) | org_id + year, data = tb_data)
+model_A2 <- feols(finance_amt ~ i(year, Assistance_2, ref=2019) | org_id + year, data = tb_data)
+model_A3 <- feols(finance_amt ~ i(year, Assistance_3, ref=2019) | org_id + year, data = tb_data)
+model_A4 <- feols(finance_amt ~ i(year, Assistance_4, ref=2019) | org_id + year, data = tb_data)
+model_A5 <- feols(finance_amt ~ i(year, Assistance_5, ref=2019) | org_id + year, data = tb_data)
+model_A6 <- feols(finance_amt ~ i(year, Assistance_6, ref=2019) | org_id + year, data = tb_data)
+model_A7 <- feols(finance_amt ~ i(year, Assistance_7, ref=2019) | org_id + year, data = tb_data)
+
+etable(model_A1, model_A2, model_A3, model_A4, model_A5, model_A6, model_A7)
+
+
+```
+
+在七种援助措施中，只有 Assistance_4 和 Assistance_7 在 2020 年对组织财务产生了显著的负向影响（分别约 18 万和 16 万美元的下降）。其他援助类型虽总体显示负相关，但均不显著，说明它们与财务变化没有统计上的关联。
+
+source=5, In-kind gifts (estimated value of donated goods, assets, or services) - (\$ received, best estimate)
+
+progchange 看一下did
+
+```{r}
+
+library(dplyr)
+library(tidyr)
+library(fixest)
+
+# 加 org_id（每个组织的固定效应编号）
+analysis_data <- analysis_data %>% mutate(org_id = dplyr::row_number())
+
+# reshape 财务数据
+tb_data <- analysis_data %>%
+  pivot_longer(
+    cols = starts_with("Finances_"),
+    names_to   = c("year_code", "source", "ignore"),
+    names_pattern = "Finances_([0-9]+)_([0-9]+)_([0-9]+)",
+    values_to  = "finance_amt"
+  ) %>%
+  mutate(
+    year = case_when(
+      year_code == "1" ~ 2019,
+      year_code == "2" ~ 2020,
+      year_code == "3" ~ 2021
+    ),
+    source = as.numeric(source)
+  ) %>%
+  # ⭐ 请确保这里列名真的存在 ⭐
+  select(org_id, year, source, finance_amt, 
+         ProgChanges_1, ProgChanges_2, ProgChanges_3, ProgChanges_4, ProgChanges_5,
+         ProgChanges_6, ProgChanges_7, ProgChanges_8, ProgChanges_9, ProgChanges_10, ProgChanges_11)
+
+# 使用指定 source (你之前选择了 source == 5)
+tb_source <- tb_data %>% filter(source == 2)
+
+
+model_P1  <- feols(finance_amt ~ i(year, ProgChanges_1,  ref=2019) | org_id + year, data = tb_source)
+model_P2  <- feols(finance_amt ~ i(year, ProgChanges_2,  ref=2019) | org_id + year, data = tb_source)
+model_P3  <- feols(finance_amt ~ i(year, ProgChanges_3,  ref=2019) | org_id + year, data = tb_source)
+model_P4  <- feols(finance_amt ~ i(year, ProgChanges_4,  ref=2019) | org_id + year, data = tb_source)
+model_P5  <- feols(finance_amt ~ i(year, ProgChanges_5,  ref=2019) | org_id + year, data = tb_source)
+model_P6  <- feols(finance_amt ~ i(year, ProgChanges_6,  ref=2019) | org_id + year, data = tb_source)
+model_P7  <- feols(finance_amt ~ i(year, ProgChanges_7,  ref=2019) | org_id + year, data = tb_source)
+model_P8  <- feols(finance_amt ~ i(year, ProgChanges_8,  ref=2019) | org_id + year, data = tb_source)
+model_P9  <- feols(finance_amt ~ i(year, ProgChanges_9,  ref=2019) | org_id + year, data = tb_source)
+model_P10 <- feols(finance_amt ~ i(year, ProgChanges_10, ref=2019) | org_id + year, data = tb_source)
+model_P11 <- feols(finance_amt ~ i(year, ProgChanges_11, ref=2019) | org_id + year, data = tb_source)
+
+
+etable(model_P1, model_P2, model_P3, model_P4, model_P5, 
+       model_P6, model_P7, model_P8, model_P9, model_P10, model_P11)
+
+```
+
+## 
+
+换一个source
+
+```{r}
+
+library(dplyr)
+library(tidyr)
+library(fixest)
+
+# 加 org_id（每个组织的固定效应编号）
+analysis_data <- analysis_data %>% mutate(org_id = dplyr::row_number())
+
+# reshape 财务数据
+tb_data <- analysis_data %>%
+  pivot_longer(
+    cols = starts_with("Finances_"),
+    names_to   = c("year_code", "source", "ignore"),
+    names_pattern = "Finances_([0-9]+)_([0-9]+)_([0-9]+)",
+    values_to  = "finance_amt"
+  ) %>%
+  mutate(
+    year = case_when(
+      year_code == "1" ~ 2019,
+      year_code == "2" ~ 2020,
+      year_code == "3" ~ 2021
+    ),
+    source = as.numeric(source)
+  ) %>%
+  # ⭐ 请确保这里列名真的存在 ⭐
+  select(org_id, year, source, finance_amt, 
+         ProgChanges_1, ProgChanges_2, ProgChanges_3, ProgChanges_4, ProgChanges_5,
+         ProgChanges_6, ProgChanges_7, ProgChanges_8, ProgChanges_9, ProgChanges_10, ProgChanges_11)
+
+# 使用指定 source (你之前选择了 source == 5)
+tb_source <- tb_data %>% filter(source == 4)
+
+
+model_P1  <- feols(finance_amt ~ i(year, ProgChanges_1,  ref=2019) | org_id + year, data = tb_source)
+model_P2  <- feols(finance_amt ~ i(year, ProgChanges_2,  ref=2019) | org_id + year, data = tb_source)
+model_P3  <- feols(finance_amt ~ i(year, ProgChanges_3,  ref=2019) | org_id + year, data = tb_source)
+model_P4  <- feols(finance_amt ~ i(year, ProgChanges_4,  ref=2019) | org_id + year, data = tb_source)
+model_P5  <- feols(finance_amt ~ i(year, ProgChanges_5,  ref=2019) | org_id + year, data = tb_source)
+model_P6  <- feols(finance_amt ~ i(year, ProgChanges_6,  ref=2019) | org_id + year, data = tb_source)
+model_P7  <- feols(finance_amt ~ i(year, ProgChanges_7,  ref=2019) | org_id + year, data = tb_source)
+model_P8  <- feols(finance_amt ~ i(year, ProgChanges_8,  ref=2019) | org_id + year, data = tb_source)
+model_P9  <- feols(finance_amt ~ i(year, ProgChanges_9,  ref=2019) | org_id + year, data = tb_source)
+model_P10 <- feols(finance_amt ~ i(year, ProgChanges_10, ref=2019) | org_id + year, data = tb_source)
+model_P11 <- feols(finance_amt ~ i(year, ProgChanges_11, ref=2019) | org_id + year, data = tb_source)
+
+
+etable(model_P1, model_P2, model_P3, model_P4, model_P5, 
+       model_P6, model_P7, model_P8, model_P9, model_P10, model_P11)
+
+```
+
+```{r}
+
+library(dplyr)
+library(tidyr)
+library(fixest)
+
+# 加 org_id（每个组织的固定效应编号）
+analysis_data <- analysis_data %>% mutate(org_id = dplyr::row_number())
+
+# reshape 财务数据
+tb_data <- analysis_data %>%
+  pivot_longer(
+    cols = starts_with("Finances_"),
+    names_to   = c("year_code", "source", "ignore"),
+    names_pattern = "Finances_([0-9]+)_([0-9]+)_([0-9]+)",
+    values_to  = "finance_amt"
+  ) %>%
+  mutate(
+    year = case_when(
+      year_code == "1" ~ 2019,
+      year_code == "2" ~ 2020,
+      year_code == "3" ~ 2021
+    ),
+    source = as.numeric(source)
+  ) %>%
+  # ⭐ 请确保这里列名真的存在 ⭐
+  select(org_id, year, source, finance_amt, 
+         ProgChanges_1, ProgChanges_2, ProgChanges_3, ProgChanges_4, ProgChanges_5,
+         ProgChanges_6, ProgChanges_7, ProgChanges_8, ProgChanges_9, ProgChanges_10, ProgChanges_11)
+
+# 使用指定 source (你之前选择了 source == 5)
+tb_source <- tb_data %>% filter(source == 6)
+
+
+model_P1  <- feols(finance_amt ~ i(year, ProgChanges_1,  ref=2019) | org_id + year, data = tb_source)
+model_P2  <- feols(finance_amt ~ i(year, ProgChanges_2,  ref=2019) | org_id + year, data = tb_source)
+model_P3  <- feols(finance_amt ~ i(year, ProgChanges_3,  ref=2019) | org_id + year, data = tb_source)
+model_P4  <- feols(finance_amt ~ i(year, ProgChanges_4,  ref=2019) | org_id + year, data = tb_source)
+model_P5  <- feols(finance_amt ~ i(year, ProgChanges_5,  ref=2019) | org_id + year, data = tb_source)
+model_P6  <- feols(finance_amt ~ i(year, ProgChanges_6,  ref=2019) | org_id + year, data = tb_source)
+model_P7  <- feols(finance_amt ~ i(year, ProgChanges_7,  ref=2019) | org_id + year, data = tb_source)
+model_P8  <- feols(finance_amt ~ i(year, ProgChanges_8,  ref=2019) | org_id + year, data = tb_source)
+model_P9  <- feols(finance_amt ~ i(year, ProgChanges_9,  ref=2019) | org_id + year, data = tb_source)
+model_P10 <- feols(finance_amt ~ i(year, ProgChanges_10, ref=2019) | org_id + year, data = tb_source)
+model_P11 <- feols(finance_amt ~ i(year, ProgChanges_11, ref=2019) | org_id + year, data = tb_source)
+
+
+etable(model_P1, model_P2, model_P3, model_P4, model_P5, 
+       model_P6, model_P7, model_P8, model_P9, model_P10, model_P11)
+
+```
+
+```{r}
+
+library(dplyr)
+library(tidyr)
+library(fixest)
+
+# 加 org_id（每个组织的固定效应编号）
+analysis_data <- analysis_data %>% mutate(org_id = dplyr::row_number())
+
+# reshape 财务数据
+tb_data <- analysis_data %>%
+  pivot_longer(
+    cols = starts_with("Finances_"),
+    names_to   = c("year_code", "source", "ignore"),
+    names_pattern = "Finances_([0-9]+)_([0-9]+)_([0-9]+)",
+    values_to  = "finance_amt"
+  ) %>%
+  mutate(
+    year = case_when(
+      year_code == "1" ~ 2019,
+      year_code == "2" ~ 2020,
+      year_code == "3" ~ 2021
+    ),
+    source = as.numeric(source)
+  ) %>%
+  # ⭐ 请确保这里列名真的存在 ⭐
+  select(org_id, year, source, finance_amt, 
+         ProgChanges_1, ProgChanges_2, ProgChanges_3, ProgChanges_4, ProgChanges_5,
+         ProgChanges_6, ProgChanges_7, ProgChanges_8, ProgChanges_9, ProgChanges_10, ProgChanges_11)
+
+# 使用指定 source (你之前选择了 source == 5)
+tb_source <- tb_data %>% filter(source == 7)
+
+
+model_P1  <- feols(finance_amt ~ i(year, ProgChanges_1,  ref=2019) | org_id + year, data = tb_source)
+model_P2  <- feols(finance_amt ~ i(year, ProgChanges_2,  ref=2019) | org_id + year, data = tb_source)
+model_P3  <- feols(finance_amt ~ i(year, ProgChanges_3,  ref=2019) | org_id + year, data = tb_source)
+model_P4  <- feols(finance_amt ~ i(year, ProgChanges_4,  ref=2019) | org_id + year, data = tb_source)
+model_P5  <- feols(finance_amt ~ i(year, ProgChanges_5,  ref=2019) | org_id + year, data = tb_source)
+model_P6  <- feols(finance_amt ~ i(year, ProgChanges_6,  ref=2019) | org_id + year, data = tb_source)
+model_P7  <- feols(finance_amt ~ i(year, ProgChanges_7,  ref=2019) | org_id + year, data = tb_source)
+model_P8  <- feols(finance_amt ~ i(year, ProgChanges_8,  ref=2019) | org_id + year, data = tb_source)
+model_P9  <- feols(finance_amt ~ i(year, ProgChanges_9,  ref=2019) | org_id + year, data = tb_source)
+model_P10 <- feols(finance_amt ~ i(year, ProgChanges_10, ref=2019) | org_id + year, data = tb_source)
+model_P11 <- feols(finance_amt ~ i(year, ProgChanges_11, ref=2019) | org_id + year, data = tb_source)
+
+
+etable(model_P1, model_P2, model_P3, model_P4, model_P5, 
+       model_P6, model_P7, model_P8, model_P9, model_P10, model_P11)
+
+
+
+```
+
+```{r}
+tb_yearsum <- tb_data %>%
+  group_by(org_id, year) %>%
+  summarise(total_finance = sum(finance_amt, na.rm = TRUE), .groups = "drop")
+
+range_fin <- range(tb_yearsum$total_finance, na.rm = TRUE)
+width <- 0.10 * (range_fin[2] - range_fin[1])
+
+tb_yearsum <- tb_yearsum %>%
+  mutate(bin = cut(total_finance,
+                   breaks = seq(range_fin[1], range_fin[2] + width, by = width),
+                   include.lowest = TRUE))
+
+tb_join <- tb_yearsum %>%
+  left_join(
+    analysis_data %>% 
+      select(org_id,
+             starts_with("ProgDem_"),
+             starts_with("GeoAreas_")),
+    by = "org_id"
+  )
+
+q75 <- quantile(tb_join$total_finance, 0.75, na.rm = TRUE)
+
+tb_top25 <- tb_join %>%
+  filter(total_finance >= q75)
+
+prog_top5 <- tb_top25 %>%
+  select(starts_with("ProgDem_")) %>%
+  pivot_longer(cols = everything(), names_to = "ProgDem", values_to = "value") %>%
+  filter(value == 1) %>%
+  count(ProgDem, sort = TRUE) %>%
+  slice_head(n = 5)
+
+geo_top2 <- tb_top25 %>%
+  select(starts_with("GeoAreas_")) %>%
+  pivot_longer(cols = everything(), names_to = "GeoAreas", values_to = "value") %>%
+  filter(value == 1) %>%
+  count(GeoAreas, sort = TRUE) %>%
+  slice_head(n = 2)
+
+
+prog_top5
+geo_top2
+
+```
+
+```{r}
+tb_yearsum <- tb_data %>%
+  group_by(org_id, year) %>%
+  summarise(total_finance = sum(finance_amt, na.rm = TRUE), .groups = "drop")
+
+
+tb_join <- tb_yearsum %>%
+  left_join(
+    analysis_data %>% 
+      select(org_id, starts_with("ProgDem_"), starts_with("GeoAreas_")),
+    by = "org_id"
+  )
+
+library(dplyr)
+library(tidyr)
+library(purrr)
+analyze_year <- function(df_year) {
+  
+  # Step 1: 添加 log finance
+  df_year <- df_year %>%
+    mutate(log_finance = log1p(total_finance))   # log(1+x) 防止 0 值报错
+  
+  # Step 2: 计算 log scale 的等宽区间宽度 10%
+  range_log <- range(df_year$log_finance, na.rm = TRUE)
+  width_log <- 0.10 * (range_log[2] - range_log[1])
+  
+  # Step 3: 按 log-finance 分桶（等宽）
+  df_year <- df_year %>%
+    mutate(bin = cut(log_finance,
+                     breaks = seq(range_log[1], range_log[2] + width_log, by = width_log),
+                     include.lowest = TRUE))
+  
+  # ---- Top ProgDem ----
+  prog_top <- df_year %>%
+    select(bin, starts_with("ProgDem_")) %>%
+    pivot_longer(cols = starts_with("ProgDem_"),
+                 names_to = "ProgDem",
+                 values_to = "value") %>%
+    filter(value == 1) %>%
+    count(bin, ProgDem, sort = TRUE) %>%
+    group_by(bin) %>%
+    slice_head(n = 5) %>%
+    mutate(type = "ProgDem")
+  
+  # ---- Top GeoAreas ----
+  geo_top <- df_year %>%
+    select(bin, starts_with("GeoAreas_")) %>%
+    pivot_longer(cols = starts_with("GeoAreas_"),
+                 names_to = "GeoAreas",
+                 values_to = "value") %>%
+    filter(value == 1) %>%
+    count(bin, GeoAreas, sort = TRUE) %>%
+    group_by(bin) %>%
+    slice_head(n = 2) %>%
+    mutate(type = "GeoAreas")
+  
+  list(prog = prog_top, geo = geo_top)
+}
+
+
+result_2019 <- analyze_year(tb_join %>% filter(year == 2019))
+result_2020 <- analyze_year(tb_join %>% filter(year == 2020))
+result_2021 <- analyze_year(tb_join %>% filter(year == 2021))
+
+
+
+```
+
+```{r}
+
+result_2019$prog
+result_2019$geo
+
+result_2020$prog
+result_2020$geo
+
+result_2021$prog
+result_2021$geo
+
+
+```
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(purrr)
+
+# Helper: add year info to result$prog and result$geo
+prep_df <- function(df, year) {
+  df %>% 
+    mutate(year = year)
+}
+
+prog_all <- bind_rows(
+  prep_df(result_2019$prog, 2019),
+  prep_df(result_2020$prog, 2020),
+  prep_df(result_2021$prog, 2021)
+)
+
+geo_all <- bind_rows(
+  prep_df(result_2019$geo, 2019),
+  prep_df(result_2020$geo, 2020),
+  prep_df(result_2021$geo, 2021)
+)
+
+
+prog_all$bin <- factor(prog_all$bin, levels = unique(prog_all$bin))
+geo_all$bin  <- factor(geo_all$bin,  levels = unique(geo_all$bin))
+
+
+geo_label_map <- c(
+  "GeoAreas_1" = "Local",
+  "GeoAreas_2" = "Multiple Local Areas",
+  "GeoAreas_3" = "Regional (within state)",
+  "GeoAreas_4" = "State-wide",
+  "GeoAreas_5" = "Regional (multi-state)",
+  "GeoAreas_6" = "Multi-state (nationwide)",
+  "GeoAreas_7" = "National",
+  "GeoAreas_8" = "International"
+)
+
+prog_label_map <- c(
+  "ProgDem_1"  = "Children (0–18)",
+  "ProgDem_2"  = "Young Adults (19–24)",
+  "ProgDem_3"  = "Adults (25–64)",
+  "ProgDem_4"  = "Older Adults (65+)",
+  "ProgDem_5"  = "Veterans",
+  "ProgDem_6"  = "All Families",
+  "ProgDem_7"  = "Income < Poverty Line",
+  "ProgDem_8"  = "Income < 200% FPL",
+  "ProgDem_9"  = "Foreign Born",
+  "ProgDem_10" = "Latinx / Hispanic",
+  "ProgDem_11" = "Black American",
+  "ProgDem_12" = "Indigenous American",
+  "ProgDem_13" = "Asian",
+  "ProgDem_14" = "Pacific Islander",
+  "ProgDem_15" = "Disabilities",
+  "ProgDem_16" = "Men / Boys",
+  "ProgDem_17" = "Women / Girls",
+  "ProgDem_18" = "Nonbinary",
+  "ProgDem_19" = "LGBTQ",
+  "ProgDem_20" = "General Public"
+)
+prog_all <- prog_all %>%
+  mutate(ProgDem_label = prog_label_map[ProgDem])
+
+geo_all <- geo_all %>%
+  mutate(GeoAreas_label = geo_label_map[GeoAreas])
+
+prog_2019 <- prog_all %>% filter(year == 2019)
+prog_2020 <- prog_all %>% filter(year == 2020)
+prog_2021 <- prog_all %>% filter(year == 2021)
+
+geo_2019  <- geo_all %>% filter(year == 2019)
+geo_2020  <- geo_all %>% filter(year == 2020)
+geo_2021  <- geo_all %>% filter(year == 2021)
+
+
+plot_prog <- function(df, year) {
+  ggplot(df, aes(x = bin, y = n, fill = ProgDem_label)) +
+    geom_col(position = "stack") +
+    labs(title = paste("ProgDem Top 25% by Finance -", year),
+         x = "Finance (log)",
+         y = "Count",
+         fill = "Program Demographics") +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+      # ⭐⭐ legend 区域设置（缩小）
+      legend.position = "right",
+      legend.text = element_text(size = 9),       # 字体小
+      legend.title = element_text(size = 10),      # 标题小
+      legend.key.size = unit(0.3, "cm")           # 色块小
+    ) +
+    guides(fill = guide_legend(ncol = 2))         # 分两列（可调）
+}
+
+
+
+
+plot_geo <- function(df, year) {
+  ggplot(df, aes(x = bin, y = n, fill = GeoAreas_label)) +
+    geom_col(position = "stack") +
+    labs(title = paste("GeoAreas Top 25% by Finance -", year),
+         x = "Finance (log)",
+         y = "Count",
+         fill = "Geo Area") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+           legend.text = element_text(size = 9),
+           legend.title = element_text(size = 10) )
+}
+
+p_prog_2019 <- plot_prog(prog_2019, 2019)
+p_prog_2020 <- plot_prog(prog_2020, 2020)
+p_prog_2021 <- plot_prog(prog_2021, 2021)
+
+p_geo_2019  <- plot_geo(geo_2019, 2019)
+p_geo_2020  <- plot_geo(geo_2020, 2020)
+p_geo_2021  <- plot_geo(geo_2021, 2021)
+
+p_prog_2019
+p_prog_2020
+p_prog_2021
+
+p_geo_2019
+p_geo_2020
+p_geo_2021
+
+ggsave("./graph/ProgDem_2019.png", p_prog_2019, width = 10, height = 6, dpi = 300)
+ggsave("./graph/ProgDem_2020.png", p_prog_2020, width = 10, height = 6, dpi = 300)
+ggsave("./graph/ProgDem_2021.png", p_prog_2021, width = 10, height = 6, dpi = 300)
+
+ggsave("./graph/GeoAreas_2019.png", p_geo_2019, width = 10, height = 6, dpi = 300)
+ggsave("./graph/GeoAreas_2020.png", p_geo_2020, width = 10, height = 6, dpi = 300)
+ggsave("./graph/GeoAreas_2021.png", p_geo_2021, width = 10, height = 6, dpi = 300)
+
+```
+
+```{r}
+tb_yearsum <- tb_data %>%
+  group_by(org_id, year) %>%
+  summarise(total_finance = sum(finance_amt, na.rm = TRUE), .groups = "drop")
+
+tb_join <- tb_yearsum %>%
+  left_join(
+    analysis_data %>% 
+      select(org_id, starts_with("ProgDem_"), starts_with("GeoAreas_")),
+    by = "org_id"
+  )
+
+
+library(dplyr)
+library(tidyr)
+analyze_year <- function(df_year) {
+  
+  # ---- 计算原始的 5 分位数 ----
+  q <- quantile(df_year$total_finance, probs = seq(0,1,0.2), na.rm = TRUE)
+  
+  # ---- 去掉重复 quantile breaks ----
+  q_unique <- unique(q)
+  
+  # 如果唯一 break 太少（例如全部一样），则退化成一组
+  if (length(q_unique) <= 2) {
+    df_year$bin <- factor("All")
+  } else {
+    # 重新生成 labels 用于自适应
+    labels <- paste0("Group ", seq_len(length(q_unique)-1))
+    
+    df_year <- df_year %>%
+      mutate(
+        bin = cut(total_finance,
+                  breaks = q_unique,
+                  include.lowest = TRUE,
+                  labels = labels)
+      )
+  }
+  
+  # ---- ProgDem Top 5 ----
+  prog_top <- df_year %>%
+    select(bin, starts_with("ProgDem_")) %>%
+    pivot_longer(cols = starts_with("ProgDem_"),
+                 names_to = "ProgDem",
+                 values_to = "value") %>%
+    filter(value == 1) %>%
+    count(bin, ProgDem, sort = TRUE) %>%
+    group_by(bin) %>%
+    slice_head(n = 5) %>%
+    mutate(type = "ProgDem")
+  
+  # ---- GeoAreas Top 2 ----
+  geo_top <- df_year %>%
+    select(bin, starts_with("GeoAreas_")) %>%
+    pivot_longer(cols = starts_with("GeoAreas_"),
+                 names_to = "GeoAreas",
+                 values_to = "value") %>%
+    filter(value == 1) %>%
+    count(bin, GeoAreas, sort = TRUE) %>%
+    group_by(bin) %>%
+    slice_head(n = 2) %>%
+    mutate(type = "GeoAreas")
+  
+  list(prog = prog_top, geo = geo_top)
+}
+
+
+result_2019 <- analyze_year(tb_join %>% filter(year == 2019))
+result_2020 <- analyze_year(tb_join %>% filter(year == 2020))
+result_2021 <- analyze_year(tb_join %>% filter(year == 2021))
+
+
+result_2019$prog
+result_2020$prog
+result_2021$prog
+
+
+
+
+result_2019$geo
+result_2020$geo
+result_2021$geo
+
+
+```
+
+```{r}
+
+1
+
+
+```

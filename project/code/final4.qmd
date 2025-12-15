@@ -1,0 +1,422 @@
+---
+title: "final4"
+format: html
+---
+
+## EDA
+
+```{r}
+rm(list=ls())
+source("pj.R")
+
+ana_data$id <- 1:nrow(ana_data)
+names(ana_data)
+```
+
+You can add options to executable code like this
+
+```{r}
+
+fc_counts <- ana_data %>%
+  select(FinanceChanges_1, FinanceChanges_2, FinanceChanges_3,
+         FinanceChanges_4, FinanceChanges_5, FinanceChanges_6) %>%
+  mutate(across(everything(), ~ ifelse(is.na(.), 0, .))) %>% 
+  colSums()
+
+
+
+fc_labels <- c(
+  "Drawn on reserves",
+  "Borrowed funds / credit line",
+  "Reduced staff benefits",
+  "Increased staff benefits",
+  "Increased overall expenses",
+  "Decreased overall expenses"
+)
+
+fc_counts_df <- data.frame(
+  category = names(fc_counts),
+  count = as.numeric(fc_counts),
+  label = fc_labels 
+)
+
+
+p <- ggplot(fc_counts_df, aes(x = reorder(label, count), y = count)) +
+  geom_col(fill = "#8DA0CB") +
+  geom_text(aes(label = count), hjust = -0.1, size = 3) +
+  coord_flip() +
+  labs(
+    title = "Financial Changes Since March 2020",
+    x = "",
+    y = "Organizations"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(hjust = 0.5, family = "serif", size = 14),
+    axis.text = element_text(family = "serif", size = 10)
+  )+ 
+    expand_limits(y = max(fc_counts_df$count) * 1.1) 
+
+ggsave("./graph/financial_changes.png", p, width = 8,height = 5, dpi = 300)
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
+
+progdem
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+## 1. 取 ProgDem 变量
+prog_vars <- names(ana_data)[startsWith(names(ana_data), "ProgDem_")]
+
+## 2. 更友好的标签
+pretty_labels <- c(
+  ProgDem_1      = "Children",
+  ProgDem_2   = "Young Adults",
+  ProgDem_3        = "Adults",
+  ProgDem_4        = "Elders",
+  ProgDem_5      = "Veterans",
+  ProgDem_6      = "Families",
+  ProgDem_7       = "Below FPL",
+  ProgDem_8   = "Below 200% FPL",
+  ProgDem_9      = "Foreign-born",
+  ProgDem_10        = "Latinx/Hispanic",
+  ProgDem_11        = "Black American",
+  ProgDem_12    = "Indigenous",
+  ProgDem_13         = "Asian",
+  ProgDem_14 = "Pacific Islander",
+  ProgDem_15      = "Disabled",
+  ProgDem_16           = "Men/Boys",
+  ProgDem_17         = "Women/Girls",
+  ProgDem_18   = "Nonbinary",
+  ProgDem_19         = "LGBTQ",
+  ProgDem_20  = "General Public"
+)
+
+## 3. 把 98 变成 NA
+prog_df <- ana_data %>%
+  select(all_of(prog_vars)) %>%
+  mutate(across(everything(), ~ na_if(., 98)))
+
+## 4. 宽转长
+prog_long <- prog_df %>%
+  pivot_longer(cols = everything(),
+               names_to = "group",
+               values_to = "category")
+
+## 5. 统计每一类(0/1/2)的人数
+prog_summary <- prog_long %>%
+  filter(!is.na(category)) %>%
+  group_by(group, category) %>%
+  summarise(count = n(), .groups = "drop")
+
+## 6. 加上可读的 group 名称
+prog_summary <- prog_summary %>%
+  mutate(pretty_group = pretty_labels[group])
+
+## 7. 为了排序（按总人数），算一下每个 group 总人数
+totals <- prog_summary %>%
+  group_by(pretty_group) %>%
+  summarise(total = sum(count), .groups = "drop")
+
+prog_summary <- prog_summary %>%
+  left_join(totals, by = "pretty_group") %>%
+  mutate(pretty_group = factor(pretty_group,
+                               levels = totals$pretty_group[order(totals$total, decreasing = TRUE)]))
+
+## 8. 画“竖着”的堆叠柱状图
+g <- ggplot(
+  prog_summary,
+  aes(x = pretty_group, y = count, fill = factor(category))
+) +
+  geom_col(width = 0.8, color = "white") +  # 竖向堆叠柱
+  geom_text(
+    aes(label = count),
+    position = position_stack(vjust = 0.5), # 每段中间放数字
+    size = 3
+  ) +
+  scale_fill_manual(
+    values = c(
+      "0" = "#d9d9d9",  # 不重点服务
+      "1" = "#1f78b4",  # 主服务群体
+      "2" = "#a6cee3"   # 次要服务群体
+    ),
+    labels = c(
+      "0" = "Not focused",
+      "1" = "Primary",
+      "2" = "Secondary"
+    ),
+    name = "Focus Level"
+  ) +
+  labs(
+    title = "Program Demographic Focus by Group",
+    x = "Target Group",
+    y = "Organizations"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+       text = element_text(family = "CMU Serif"),
+    plot.title = element_text(hjust = 0.5, size = 14),
+    axis.text.x = element_text(angle = 40, hjust = 1)  # x 轴标签倾斜，方便读
+  )
+
+ggsave("./graph/demo.png", g, width = 8,height = 5, dpi = 300)
+```
+
+geoarea\_
+
+```{r}
+geo_vars <- names(ana_data)[startsWith(names(ana_data), "GeoAreas_")]
+geo_vars
+
+geo_df <- ana_data %>%
+  select(all_of(geo_vars)) %>%
+  mutate(across(everything(), ~ ifelse(is.na(.), 0, .)))
+
+geo_counts <- colSums(geo_df)
+
+
+geo_labels <- c(
+  "Local",
+  "Multiple Local Areas",
+  "Regional (within state)",
+  "State-wide",
+  "Regional (multi-state)",
+  "Multi-state (national)",
+  "National",
+  "International",
+  "Other"
+)
+
+geo_plot_df <- data.frame(
+  area = geo_labels,
+  count = as.numeric(geo_counts)
+)
+
+
+library(ggplot2)
+
+area <- ggplot(geo_plot_df, aes(x = reorder(area, count), y = count)) +
+  geom_col(fill = "#80b1d3") +
+  geom_text(aes(label = count), vjust = -0.5, size = 4) +
+  labs(
+    title = "Geographic Areas Where Organizations Operate",
+    x = "Geographic Area",
+    y = "Number of Organizations"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 18),
+    axis.text.x = element_text(angle = 20, hjust = 1)
+  )
+
+ggsave("./graph/eda_area.png", area, width = 8,height = 5, dpi = 300)
+```
+
+第一个数据分析任务，
+
+```{r}
+group_rules <- list(
+  arts       = ana_data %>% filter(cate_arts == 1  & cate_edu == 0),
+  edu        = ana_data %>% filter(cate_arts == 0  & cate_edu == 1),
+  arts_edu   = ana_data %>% filter(cate_arts == 1  & cate_edu == 1)
+)
+
+prog_vars <- names(ana_data %>% select(contains("ProgChanges_")))
+
+fr_vars <- grep("^FRchanges_2_[0-9]+$", names(ana_data), value = TRUE)
+
+
+chi_list <- list()
+min_count_threshold <- 50  # 你要求的阈值
+
+
+for (group_name in names(group_rules)) {
+    
+    df <- group_rules[[group_name]]
+    
+    for (p in prog_vars) {
+        for (f in fr_vars) {
+            
+            # 构建交叉表
+            tab <- table(df[[p]], df[[f]])
+            
+            # 忽略空表
+            if (nrow(tab) < 2 | ncol(tab) < 2) next
+            
+            # 检查样本量
+            total_n <- sum(tab)
+            if (total_n < min_count_threshold) {
+                message(sprintf(
+                  "Skipped %s × %s in %s: sample size %d < threshold %d",
+                  p, f, group_name, total_n, min_count_threshold
+                ))
+                next
+            }
+            
+            # χ² 检验
+            test <- suppressWarnings(chisq.test(tab))
+            
+            # ========= NEW PART: 判断显著方向 =========
+            direction <- NA
+           if (!is.na(test$p.value) && test$p.value < 0.05) {
+                # 计算每一组 ProgChange 的 FRChange 均值
+                means <- tapply(df[[f]], df[[p]], mean, na.rm = TRUE)
+                
+                # ProgChange=1 vs ProgChange=0
+                if (length(means) >= 2) {
+                    if (means["1"] > means["0"]) {
+                        direction <- "positive"
+                    } else if (means["1"] < means["0"]) {
+                        direction <- "negative"
+                    } else {
+                        direction <- "no difference"
+                    }
+                }
+            }
+            # ============================================
+            
+            chi_list[[length(chi_list)+1]] <- data.frame(
+                Group = group_name,
+                ProgChange = p,
+                FRChange = f,
+                ChiSq = test$statistic,
+                df = test$parameter,
+                p_value = test$p.value,
+                Significant = test$p.value < 0.05,
+                SampleSize = total_n,
+                Direction = direction   # ⭐ 新增字段
+            )
+        }
+    }
+}
+
+
+chi_results <- do.call(rbind, chi_list)
+
+View(chi_results)
+
+sig <- chi_results %>% filter(Significant == TRUE)
+View(sig)
+
+sig_sorted <- sig %>% arrange(desc(ChiSq))
+View(sig_sorted)
+
+
+```
+
+```{r}
+ana_data <- ana_data %>%
+  mutate(
+    cate_arts = ifelse(is.na(cate_arts), 0, cate_arts),
+    cate_edu  = ifelse(is.na(cate_edu), 0, cate_edu)
+  )
+
+group_sizes <- data.frame(
+  group = c("arts", "edu", "arts_edu"),
+  n = c(
+    sum(ana_data$cate_arts == 1 & ana_data$cate_edu == 0, na.rm = TRUE),
+    sum(ana_data$cate_arts == 0 & ana_data$cate_edu == 1, na.rm = TRUE),
+    sum(ana_data$cate_arts == 1 & ana_data$cate_edu == 1, na.rm = TRUE)
+  )
+)
+
+group_sizes
+```
+
+```{r}
+
+sig_summary_prog <- sig_sorted %>%
+    group_by(ProgChange) %>%
+    summarise(n_sig = n()) %>%
+    arrange(desc(n_sig))
+
+sig_summary_prog
+
+```
+
+```{r}
+sig_summary_fr <- sig_sorted %>%
+    group_by(FRChange) %>%
+    summarise(n_sig = n()) %>%
+    arrange(desc(n_sig))
+
+sig_summary_fr
+
+```
+
+```{r}
+direction_summary <- sig_sorted %>%
+    group_by(Direction) %>%
+    summarise(n = n())
+direction_summary
+
+direction_by_prog <- sig_sorted %>%
+    group_by(ProgChange, Direction) %>%
+    summarise(n = n()) %>%
+    arrange(ProgChange)
+
+direction_by_prog
+```
+
+```{r}
+sig_summary_group <- sig_sorted %>%
+    group_by(Group) %>%
+    summarise(n_sig = n())
+
+sig_summary_group
+
+```
+
+```{r}
+sig_interpret <- sig_sorted %>%
+    mutate(
+        Interpretation = paste0(
+            "In group ", Group, 
+            ", program action ", ProgChange,
+            " is significantly associated with financial change ", FRChange,
+            " (p = ", round(p_value,4), "). ",
+            "Direction: ", Direction, "."
+        )
+    )
+sig_interpret 
+```
+
+由于prochanges存在相反含义的标注选择，我们发现对于同一个group(arts)，同一个frchange的两种相反actions存在显著性正负的结论。说明有强相关性。这种强相关性匹配的结论有，
+
+|  |  |  |  |  |  |  |  |  |  |
+|----|----|----|----|----|----|----|----|----|----|
+|  | arts | ProgChanges_1 | FRchanges_2_1 | 10.484182 | 4 | 3.301558e-02 | TRUE | 128 | positive |
+| X-squared11 | arts | ProgChanges_2 | FRchanges_2_1 | 25.937753 | 4 | 3.257242e-05 | TRUE | 128 | negative |
+
+|  |  |  |  |  |  |  |  |
+|----|----|----|----|----|----|----|----|
+| ProgChanges_4 | FRchanges_2_1 | 15.723447 | 4 | 3.413619e-03 | TRUE | 121 | positive |
+| X-squared44 | arts | ProgChanges_5 | FRchanges_2_1 |  |  |  |  |
+
+1,2,2_1, arts
+
+4 5，2_1 arts,
+
+4 5，2_1 edu
+
+1,2,2_11, edu
+
+4,5, 2_3, arts
+
+1,2, 2_5, arts
+
+1,2,2_6, arts
+
+1,2,2_6, edu
+
+Across the three focal organizational groups (arts, education, and arts+education), we find a set of *highly structured and internally consistent associations* between program adjustments made after March 2020 and subsequent financial outcomes. In particular, several pairs of program changes that logically represent opposite actions—such as increasing versus reducing programs, or increasing versus reducing the number of people served—show *mirror-image statistical significance* when predicting pandemic-period revenue changes (FRChanges_2 variables).
+
+For example, organizations that **increased the number of programs (ProgChanges_1)** were significantly more likely to report revenue increases (FRChanges_2_1), while those that **reduced programs (ProgChanges_2)** were significantly more likely to experience revenue declines. The same pattern appears for **increasing vs. reducing the number of people served (ProgChanges_4 vs ProgChanges_5)**, both in the arts sector and in education.
+
+This bidirectional symmetry is also evident for more specific revenue sources, including **major gifts (FRChanges_2_3)**, **unrestricted foundation/corporate grants (FRChanges_2_11)**, **lower-income individual donations (FRChanges_2_5)**, and **unrestricted individual giving overall (FRChanges_2_6)**. In all cases, *expansive program actions* (e.g., reaching more people, offering more programs) correspond to *positive revenue shifts*, whereas *contractive program actions* align with *negative revenue shifts*.
+
+Such mirror-significant patterns are unlikely to arise from sampling variability alone. Instead, they demonstrate a **robust behavioral–financial coupling**: organizations that expanded their programmatic footprint during the pandemic—despite operational challenges—were systematically rewarded with stronger financial performance, while those that contracted programs experienced corresponding financial strain. This internal coherence across multiple revenue categories strengthens the interpretive confidence of the results and highlights program expansion as a key driver of financial resilience during the COVID-19 period.

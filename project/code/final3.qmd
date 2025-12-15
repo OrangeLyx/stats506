@@ -1,0 +1,1363 @@
+---
+title: "final3"
+format: html
+---
+
+## Loading Data
+
+```{r}
+# rm(list=ls())
+source("pj.R")
+
+ana_data$id <- 1:nrow(ana_data)
+names(ana_data)
+```
+
+## EDA
+
+```{r}
+# summary(ana_data)
+# 没有什么用
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(viridis)
+```
+
+```{r}
+cate_cols <- ana_data %>%  dplyr::select(starts_with("cate_"))
+
+cate_clean <- cate_cols %>% mutate_all(~ifelse(is.na(.), 0, .))
+
+cate_summary <- data.frame(
+  category = gsub("^cate_", "", names(cate_clean)),
+  count = colSums(cate_clean)
+)
+
+
+p_cate<-ggplot(cate_summary, aes(x = reorder(category, count), y = count, fill = count)) +
+  geom_col() +
+  geom_text(aes(label = count), 
+            hjust = -0.2, 
+            size = 3,
+            family = "serif") +
+  coord_flip() +
+ #    scale_fill_viridis(option = "C") +   # ⭐ 色彩美观
+scale_fill_gradientn(colors = rainbow(6))+
+  labs(
+    title = "Distribution of Focus Areas",
+    x = "Category",
+    y = "Organizations"
+  ) +
+    expand_limits(y = max(cate_summary$count) * 1.05) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5, family = "serif", size = 12),
+    axis.title = element_text(family = "serif", size = 10),
+    axis.text = element_text(family = "serif", size = 8),
+    legend.position = "none" 
+  )
+
+p_cate
+
+ggsave("./graph/eda_category.png", p_cate, width = 8, height = 6, dpi = 300)
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(RColorBrewer)
+
+# Data prep
+cate_cols <- ana_data %>% select(starts_with("cate_"))
+cate_clean <- cate_cols %>% mutate_all(~ifelse(is.na(.), 0, .))
+
+cate_summary <- data.frame(
+  category = gsub("^cate_", "", names(cate_clean)),
+  count = colSums(cate_clean)
+)
+
+# Add pct + label
+cate_summary <- cate_summary %>%
+  mutate(
+    pct = count / sum(count),
+    label = ifelse(pct >= 0.05, paste0(count), NA)
+  ) %>%
+  arrange(desc(count)) %>%   mutate(category = factor(category, levels = category))
+
+# Enough colors
+palette_colors <- colorRampPalette(brewer.pal(12, "Set3"))(nrow(cate_summary))
+
+p_pie <- ggplot(cate_summary, aes(x = "", y = pct, fill = category)) +
+  geom_col(width = 1, color = "white") +
+  coord_polar("y") +
+  geom_text(
+    aes(label = label),
+    position = position_stack(vjust = 0.5),
+    size = 3,
+    na.rm = TRUE,
+    family = "serif"
+  ) +
+  scale_fill_manual(values = palette_colors) +
+  labs(
+    title = "Distribution of Focus Category",
+    fill = "Category"
+  ) +
+  theme_void()
+
+p_pie
+
+
+ggsave("./graph/eda_category_pie.png", p_pie,
+       width = 10, height = 7, dpi = 300)
+
+```
+
+```{r}
+# 聚类看效果
+library(UpSetR)
+
+cate_clean <- ana_data %>% 
+  dplyr::select(starts_with("cate_")) %>% 
+  mutate_all(~ifelse(is.na(.), 0, .))
+
+topN <- 10
+top_cate <- names(sort(colSums(cate_clean), decreasing = TRUE))[1:topN]
+
+df_plot <- cate_clean[top_cate]
+colnames(df_plot) <- sub("^cate_", "", top_cate)
+
+par(family = "serif")
+
+png("./graph/eda_upset_categories_top10.png", width = 1800, height = 1200, res = 200)
+
+upset(
+  as.data.frame(df_plot),
+  nsets = topN,
+  nintersects = 10,
+  order.by = "freq",
+  mb.ratio = c(0.6, 0.4),
+  sets.bar.color = "black",    # 左侧柱图：黑色
+  main.bar.color = "grey20",   # 主柱图：深灰色
+  matrix.color = "black",      # 交叉点：黑色
+  point.size = 3,
+  line.size = 1
+)
+
+dev.off()
+
+```
+
+把重心放在arts, edu, arts+edu 这样后面数据会多一些
+
+Prochanges\_
+
+```{r}
+prog_changes <- ana_data %>% 
+  dplyr::select(starts_with("ProgChanges_")) %>%
+  mutate_all(~ifelse(is.na(.), 0, .))   # 将 NA 当成 0
+
+library(RColorBrewer)
+colors_prog <- brewer.pal(n = 12, "Set3")
+
+prog_label_map <- c(
+  "ProgChanges_1"  = "Increased number of programs/services",
+  "ProgChanges_2"  = "Reduced number of programs/services",
+  "ProgChanges_3"  = "Suspended or paused services",
+  "ProgChanges_4"  = "Increased number of people served",
+  "ProgChanges_5"  = "Reduced number of people served",
+  "ProgChanges_6"  = "Expanded geographic areas served",
+  "ProgChanges_7"  = "Reduced geographic areas served",
+  "ProgChanges_8"  = "Increased program fees",
+  "ProgChanges_9"  = "Reduced program fees",
+  "ProgChanges_10" = "Shifted services to online",
+  "ProgChanges_11" = "Added new online services",
+  "ProgChanges_12" = "Other program restructuring"
+)
+
+
+prog_summary <- data.frame(
+  change = names(prog_changes),
+  count = colSums(prog_changes, na.rm = TRUE)
+)
+
+
+prog_summary$label <- gsub("^ProgChanges_", "", prog_summary$change)
+
+
+ggplot(prog_summary, aes(x = reorder(label, count), y = count, fill = count)) +
+  geom_col() +
+  geom_text(aes(label = count), hjust = -0.2, size = 3, family = "serif") +
+  coord_flip() +
+  scale_fill_gradient(low = "grey80", high = "grey20") +
+  labs(
+    title = "Program Changes Adopted ",
+    x = "Type of Program Change",
+    y = "Number of Organizations"
+  ) +
+  expand_limits(y = max(prog_summary$count) * 1.1) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5, family = "serif", size = 14),
+    axis.title = element_text(family = "serif", size = 10),
+    axis.text = element_text(family = "serif", size = 8),
+    legend.position = "none"
+  )
+
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(RColorBrewer)
+
+# 1. 取 ProgChanges 变量
+prog_changes <- ana_data %>% 
+  dplyr::select(starts_with("ProgChanges_")) %>%
+  mutate_all(~ifelse(is.na(.), 0, .))
+
+# 2. 汇总
+prog_summary <- data.frame(
+  change = names(prog_changes),
+  count = colSums(prog_changes, na.rm = TRUE)
+)
+
+# 3. 添加清晰标签
+prog_summary$label <- prog_label_map[prog_summary$change]
+
+# 4. 设置彩色
+colors_prog <- brewer.pal(n = 12, "Set3")
+
+# 5. 绘图
+p_prog <- ggplot(prog_summary,
+                 aes(x = reorder(label, count), y = count, fill = label)) +
+  geom_col(width = 0.65) +
+  geom_text(aes(label = count),
+            hjust = -0.1, size = 3, family = "serif") +
+  coord_flip() +
+  scale_fill_manual(values = colors_prog) +
+  labs(
+    title = "Program Changes Adopted Since 2020",
+    x = "Type of Change",
+    y = "Number of Organizations"
+  ) +
+  expand_limits(y = max(prog_summary$count) * 1.12) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16, family = "serif"),
+    axis.title = element_text(size = 10, family = "serif"),
+    axis.text = element_text(size = 9, family = "serif"),
+    legend.position = "none"     # 不需要图例（否则太占空间）
+  )
+
+p_prog
+
+ggsave("./graph/eda_progchanges.png", p_prog,
+       width = 10, height = 7, dpi = 300)
+```
+
+服务转线上，或者暂停。
+
+```{r}
+library(corrplot)
+
+co_mat <- cor(prog_changes, method = "pearson")
+
+prog_labels <- c(
+  "Increased services",
+  "Reduced services",
+  "Suspended services",
+  "Increased people served",
+  "Reduced people served",
+  "Expanded geographic area",
+  "Reduced geographic area",
+  "Increased program fees",
+  "Reduced program fees",
+  "Shifted to remote",
+  "Added remote services",
+  "Restructured services"
+)
+
+rownames(co_mat) <- prog_labels
+colnames(co_mat) <- prog_labels
+
+png("./graph/eda_progchanges_corrplot.png", width = 2000, height = 1600, res = 200)
+
+corrplot(
+  co_mat,
+  method = "color",
+  tl.col = "black",
+  tl.srt = 45,
+  tl.cex = 0.7
+)
+
+dev.off()
+
+```
+
+减少的措施和减少的相关，增加的和增加的相关
+
+opschanges\_ 分析
+
+```{r}
+
+ops_changes <- ana_data %>% 
+  dplyr::select(starts_with("OpsChanges_")) %>%
+  mutate_all(~ifelse(is.na(.), 0, .))
+
+
+ops_labels <- c(
+  "Increased hours of operation",
+  "Reduced hours of operation",
+  "More flexible hours",
+  "Opened new offices or sites",
+  "Closed offices or sites"
+)
+
+ops_summary <- data.frame(
+  change = ops_labels,
+  count = colSums(ops_changes, na.rm = TRUE)
+)
+
+
+g <- ggplot(ops_summary, aes(x = reorder(change, count), y = count, fill = count)) +
+  geom_col() +
+  geom_text(aes(label = count),
+            hjust = -0.2,
+            size = 3,
+            family = "serif") +
+  coord_flip() +
+  scale_fill_gradient(low = "grey80", high = "grey20") +
+  labs(
+    title = "Operational Changes Since 2020",
+    x = "Operational Change",
+    y = "Organizations"
+  ) +
+  expand_limits(y = max(ops_summary$count) * 1.15) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5, family = "serif", size = 16),
+    axis.title = element_text(family = "serif", size = 12),
+    axis.text = element_text(family = "serif", size = 10),
+    legend.position = "none"
+  )
+g
+
+ggsave("./graph/eda_opschanges.png", g,
+       width = 8, height = 6, dpi = 300)
+
+```
+
+```{r}
+library(RColorBrewer)
+
+# 使用 Set2 或 Set3 都很好看
+ops_colors <- brewer.pal(n = 5, "Set3")
+
+g <- ggplot(ops_summary, aes(x = reorder(change, count), y = count, fill = change)) +
+  geom_col(width = 0.65) +
+  geom_text(aes(label = count),
+            hjust = -0.1,
+            size = 3,
+            family = "serif") +
+  coord_flip() +
+  scale_fill_manual(values = ops_colors) +
+  labs(
+    title = "Operational Changes Since 2020",
+    x = "Operational Change",
+    y = "Organizations"
+  ) +
+  expand_limits(y = max(ops_summary$count) * 1.15) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5, family = "serif", size = 16),
+    axis.title = element_text(family = "serif", size = 12),
+    axis.text = element_text(family = "serif", size = 10),
+    legend.position = "none"
+  )
+
+g
+ggsave("./graph/eda_opschanges.png", g, width = 8, height = 6, dpi = 300)
+
+```
+
+assistance\_ 分析
+
+```{r}
+assistance <- ana_data %>%
+  dplyr::select(starts_with("Assistance_")) %>%
+  mutate_all(~ifelse(is.na(.), 0, .))
+
+assist_labels <- c(
+  "Developed virtual working policies",
+  "Provided staff computers for home use",
+  "Helped staff with internet access",
+  "Increased transportation assistance",
+  "Reduced transportation assistance",
+  "Internet access for service recipients",
+  "Computer access for service recipients"
+)
+
+assist_summary <- data.frame(
+  change = assist_labels,
+  count = colSums(assistance, na.rm = TRUE)
+)
+assist_summary <- assist_summary %>% arrange(desc(count))
+
+library(ggplot2)
+
+ggplot(assist_summary,
+       aes(x = reorder(change, count), y = count)) +
+  geom_bar(stat = "identity", fill = "grey40") +
+  geom_text(aes(label = count),
+            hjust = -0.1, size = 3.5, family = "serif") +
+  coord_flip() +
+  labs(title = "Assistance Provided Since March 2020",
+       x = "Type of Assistance",
+       y = "Number of Organizations") +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(family = "serif", hjust = 0.5),
+    axis.title = element_text(family = "serif"),
+    axis.text = element_text(family = "serif", size = 10)
+  ) +
+  expand_limits(y = max(assist_summary$count) * 1.12)  
+
+
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(RColorBrewer)
+
+assistance <- ana_data %>%
+  select(starts_with("Assistance_")) %>%
+  mutate_all(~ifelse(is.na(.), 0, .))
+
+assist_labels <- c(
+  "Developed virtual working policies",
+  "Provided staff computers for home use",
+  "Helped staff with internet access",
+  "Increased transportation assistance",
+  "Reduced transportation assistance",
+  "Internet access for service recipients",
+  "Computer access for service recipients"
+)
+
+assist_summary <- data.frame(
+  change = assist_labels,
+  count = colSums(assistance, na.rm = TRUE)
+) %>% arrange(desc(count))
+
+# Color palette for 7 categories
+assist_colors <- brewer.pal(n = 7, "Set2")
+
+g<- ggplot(assist_summary,
+       aes(x = reorder(change, count), y = count, fill = change)) +
+  geom_col(width = 0.65) +
+  geom_text(aes(label = count),
+            hjust = -0.1, size = 3.5, family = "serif") +
+  coord_flip() +
+  scale_fill_manual(values = assist_colors) +
+  labs(
+    title = "Assistance Provided Since March 2020",
+    x = "Type of Assistance",
+    y = "Number of Organizations"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(family = "serif", hjust = 0.5, size = 15),
+    axis.title = element_text(family = "serif"),
+    axis.text = element_text(family = "serif", size = 10),
+    legend.position = "none"   # 不要图例（最好）
+  ) +
+  expand_limits(y = max(assist_summary$count) * 1.12)
+
+g
+
+ggsave("./graph/eda_assistances.png", g, width = 8, height = 6, dpi = 300)
+
+```
+
+extaffairs\_
+
+不需要这个变量了，
+
+```{r}
+ext19 <- ana_data %>%
+   dplyr::select(starts_with("EXTAFFAIRS_1_")) %>%
+  mutate_all(~ifelse(is.na(.), 0, .))
+
+ext20 <- ana_data %>%
+   dplyr::select(starts_with("EXTAFFAIRS_2_")) %>%
+  mutate_all(~ifelse(is.na(.), 0, .))
+
+ncol(ext19); ncol(ext20)   # 都应该是 12
+
+```
+
+```{r}
+ext_labels <- c(
+  "Educate the public",
+  "Publicize research",
+  "Work with organizations",
+  "Build govt relationships",
+  "Discuss grants/contracts",
+  "Respond to government info requests",
+  "Testify or help draft legislation",
+  "Lobby policy-makers",
+  "Organize marches/rallies",
+  "Mobilize people to participate",
+  "Encourage member communication",
+  "Get-out-the-vote activities"
+)
+
+
+ext_summary <- data.frame(
+  activity = ext_labels,
+  y2019 = colSums(ext19, na.rm = TRUE),
+  y2020 = colSums(ext20, na.rm = TRUE)
+)
+
+ext_summary$diff <- ext_summary$y2020 - ext_summary$y2019
+ext_summary
+
+
+
+plot_df <- ext_summary %>%
+  pivot_longer(cols = c("y2019","y2020"),
+               names_to = "year",
+               values_to = "count") %>%
+  mutate(year = ifelse(year=="y2019", "2019", "2020"))
+
+
+ggplot(plot_df,
+       aes(x = reorder(activity, count), y = count, fill = year)) +
+  geom_bar(stat = "identity", position = "dodge", width = 0.7) +
+  geom_text(aes(label = count),
+            position = position_dodge(width = 0.7),
+            vjust = -0.4, size = 3, family = "serif") +
+  coord_flip() +
+  scale_fill_manual(values = c("grey60", "grey30")) +
+  labs(title = "External Affairs Activities: 2019 vs 2020",
+       x = "Activity",
+       y = "Number of Organizations",
+       fill = "Year") +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(family = "serif", hjust = 0.5),
+    axis.title = element_text(family = "serif"),
+    axis.text = element_text(family = "serif", size = 9),
+    legend.text = element_text(family = "serif"),
+    legend.title = element_text(family = "serif")
+  ) +
+  expand_limits(y = max(plot_df$count) * 1.15)
+
+```
+
+financechange
+
+```{r}
+fr_pre <- ana_data %>% 
+  dplyr::select(starts_with("FRCHANGES_1_")) %>%
+  mutate_all(~ifelse(is.na(.), 0, .))
+
+fr_post <- ana_data %>% 
+  dplyr::select(starts_with("FRCHANGES_2_")) %>%
+  mutate_all(~ifelse(is.na(.), 0, .))
+
+pre_counts  <- colSums(fr_pre)
+post_counts <- colSums(fr_post)
+
+fr_summary <- data.frame(
+  category = paste0("Donation_", 1:12),
+  pre_2019 = pre_counts,
+  post_2020 = post_counts,
+  diff = post_counts - pre_counts
+)
+
+fr_summary
+
+
+fr_labels <- c(
+  "Overall donations",
+  "Cash donations < $250",
+  "Cash donations ≥ $250",
+  "Major gifts",
+  "Low-income donor gifts",
+  "Unrestricted cash",
+  "Restricted cash",
+  "Non-cash asset donations",
+  "In-kind donations",
+  "Board member donations",
+  "Found./Corp. grants",
+  "Found./Corp. grants"
+)
+
+
+plot_df <- fr_summary %>%
+  pivot_longer(cols = c(pre_2019, post_2020),
+               names_to = "period", 
+               values_to = "count")
+
+ggplot(plot_df, aes(x = category, y = count, fill = period)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  coord_flip() +
+scale_x_discrete(labels = fr_labels) + 
+  scale_fill_manual(values = c("grey60", "black"),
+                    labels = c("2015–2019", "2020–Now")) +
+  labs(title = "Donation Pattern Changes",
+       x = "Donation Type",
+       y = "Number of Organizations") +
+  theme_minimal()
+
+
+```
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(RColorBrewer)
+
+# -----------------------
+# 1. 数据预处理
+# -----------------------
+fr_pre <- ana_data %>% 
+  select(starts_with("FRCHANGES_1_")) %>% 
+  mutate_all(~ifelse(is.na(.), 0, .))
+
+fr_post <- ana_data %>% 
+  select(starts_with("FRCHANGES_2_")) %>% 
+  mutate_all(~ifelse(is.na(.), 0, .))
+
+pre_counts  <- colSums(fr_pre)
+post_counts <- colSums(fr_post)
+
+fr_summary <- data.frame(
+  category = paste0("Donation_", 1:12),
+  pre_2019 = pre_counts,
+  post_2020 = post_counts
+)
+
+# -----------------------
+# 2. 更清晰的标签（修正重复项）
+# -----------------------
+fr_labels <- c(
+  "Overall donations",
+  "Cash donations < $250",
+  "Cash donations ≥ $250",
+  "Major gifts",
+  "Low-income donor gifts",
+  "Unrestricted cash",
+  "Restricted cash",
+  "Non-cash asset donations",
+  "In-kind donations",
+  "Board member donations",
+  "Foundation grants",
+  "Corporate grants"
+)
+
+# -----------------------
+# 3. Pivot to long format
+# -----------------------
+plot_df <- fr_summary %>%
+  pivot_longer(cols = c(pre_2019, post_2020),
+               names_to = "period",
+               values_to = "count")
+
+plot_df$period <- factor(plot_df$period,
+                         levels = c("pre_2019", "post_2020"),
+                         labels = c("2015–2019", "2020–Now"))
+
+# -----------------------
+# 4. 彩色柱状图
+# -----------------------
+color_palette <- brewer.pal(3, "Set2")[1:2]  # 两个好看的颜色
+
+p_fr <- ggplot(plot_df,
+       aes(x = reorder(category, count), y = count, fill = period)) +
+  geom_col(position = "dodge", width = 0.6) +
+  coord_flip() +
+  scale_x_discrete(labels = fr_labels) +
+  scale_fill_manual(
+    values = color_palette,
+    name   = "Period"
+  ) +
+  labs(
+    title = "Donation Pattern Changes",
+    x = "Donation",
+    y = "Organizations"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(family = "serif", hjust = 0.5, size = 14),
+    axis.title = element_text(family = "serif", size = 12),
+    axis.text = element_text(family = "serif", size = 10)
+  )
+
+p_fr
+
+# -----------------------
+# 5. Save Image
+# -----------------------
+ggsave("./graph/eda_financechngs.png",
+       p_fr,
+       width = 10, height = 7, dpi = 300)
+
+```
+
+```{r}
+
+mcnemar.test(table(ana_data$FRchanges_1_1, ana_data$FRchanges_2_1))
+
+table(ana_data$FRchanges_1_1, ana_data$FRchanges_2_1)
+
+
+```
+
+```{r}
+# 提取一个变量的前后时期
+before <- ana_data$FRchanges_1_1
+after  <- ana_data$FRchanges_2_1
+
+# 去掉 NA
+valid_idx <- complete.cases(before, after)
+before <- before[valid_idx]
+after  <- after[valid_idx]
+
+# 转移矩阵
+trans_mat <- table(before, after)
+
+# 转成 long format
+# install.packages("reshape2")   # 若尚未安装
+library(reshape2)
+df_heat <- melt(trans_mat)
+colnames(df_heat) <- c("Before", "After", "Count")
+
+# 定义标签
+labels <- c(
+  "1 Decreased significantly",
+  "2 Decreased moderately",
+  "3 Stayed same",
+  "4 Increased moderately",
+  "5 Increased significantly"
+)
+
+df_heat$Before_label <- factor(df_heat$Before, levels = 1:5, labels = labels)
+df_heat$After_label  <- factor(df_heat$After,  levels = 1:5, labels = labels)
+
+# 画热力图
+g<-ggplot(df_heat, aes(x = After_label, y = Before_label, fill = Count)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = Count), size = 3) +
+  scale_fill_gradient(low = "#E0F3F8", high = "#08589E") +
+  labs(
+    title = "Transition Heatmap: Donation Change",
+    x = "After (2020–now)",
+    y = "Before (2015–2019)",
+    fill = "Count"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, family="serif"),
+    axis.text.y = element_text(family="serif"),
+    plot.title = element_text(hjust = 0.5, family="serif", size=14)
+  )
+g
+
+ggsave("./graph/eda_financechngs_comp.png",
+       g,
+       width = 7, height = 5, dpi = 300)
+```
+
+```{r}
+bowker_test <- function(tab) {
+  # tab is a square KxK table of paired categories
+  k <- nrow(tab)
+  stat <- 0
+  
+  for (i in 1:(k-1)) {
+    for (j in (i+1):k) {
+      nij <- tab[i,j]
+      nji <- tab[j,i]
+      if (nij + nji > 0) {
+        stat <- stat + (nij - nji)^2 / (nij + nji)
+      }
+    }
+  }
+  
+  df <- k * (k - 1) / 2
+  p <- pchisq(stat, df = df, lower.tail = FALSE)
+  
+  return(list(statistic = stat, df = df, p.value = p))
+}
+
+results <- data.frame(
+  variable = character(),
+  statistic = numeric(),
+  df = numeric(),
+  p.value = numeric(),
+  significant = logical(),
+  stringsAsFactors = FALSE
+)
+
+for (i in 1:12) {
+  
+  before <- ana_data[[paste0("FRchanges_1_", i)]]
+  after  <- ana_data[[paste0("FRchanges_2_", i)]]
+  
+  # keep complete cases
+  keep <- complete.cases(before, after)
+  tab <- table(before[keep], after[keep])
+  
+  test <- bowker_test(tab)
+  
+  results[i,] <- list(
+    variable = paste0("FRCHANGE_", i),
+    statistic = round(test$statistic, 3),
+    df = test$df,
+    p.value = test$p.value,
+    significant = (test$p.value < 0.05)
+  )
+}
+
+results
+```
+
+查看差异
+
+```{r}
+results <- data.frame(
+  var = character(),
+  before_mean = numeric(),
+  after_mean = numeric(),
+  diff = numeric()
+)
+
+for (i in 1:10) {
+  before <- ana_data[[paste0("FRchanges_1_", i)]]
+  after  <- ana_data[[paste0("FRchanges_2_", i)]]
+
+  before_mean <- mean(before, na.rm = TRUE)
+  after_mean  <- mean(after,  na.rm = TRUE)
+  
+  results <- rbind(results, data.frame(
+    var = paste0("FRCHANGE_", i),
+    before_mean = before_mean,
+    after_mean = after_mean,
+    diff = after_mean - before_mean
+  ))
+}
+
+results
+
+```
+
+Bowker 检验告诉你：
+
+**疫情前 vs 疫情后 捐赠结构有显著变化（不是随机波动）。**
+
+diff 分析告诉你：
+
+**变化方向是：所有捐赠类别均明显趋向下降。**
+
+这两者结合得出：
+
+⭐⭐⭐ **疫情显著并广泛地削弱了非营利组织的所有捐赠来源，且下降趋势一致而普遍。**
+
+这在报告里是非常有力的结论。
+
+funding\_
+
+哪些funding最常被申请和获得
+
+```{r}
+funding <- ana_data %>%
+  dplyr::select(starts_with("Funding")) %>%
+  mutate_all(~ifelse(is.na(.), 0, .))
+
+
+seek_vars <- grep("Funding1_1", names(funding), value = TRUE)
+receive_vars <- gsub("Funding1_1", "Funding1_2", seek_vars)
+
+compare_df <- data.frame(
+  funding_type = seek_vars,
+  seek_pct = colMeans(funding[seek_vars]) * 100,
+  receive_pct = colMeans(funding[receive_vars]) * 100
+)
+
+compare_df$gap <- compare_df$seek_pct - compare_df$receive_pct
+
+compare_df$label <- gsub("Funding1_1_", "", compare_df$funding_type)
+
+plot_df <- compare_df %>%
+  select(label, seek_pct, receive_pct) %>%
+  pivot_longer(cols = c(seek_pct, receive_pct),
+               names_to = "type",
+               values_to = "pct")
+
+
+ggplot(plot_df, aes(x = reorder(label, pct), y = pct, fill = type)) +
+  geom_col(position = position_dodge(width = 0.7)) +
+  coord_flip() +
+  labs(
+    title = "Funding Sought vs Received (%)",
+    x = "Funding Category",
+    y = "Percentage of Organizations",
+    fill = "Type"
+  ) +
+  scale_fill_manual(
+    values = c("seek_pct" = "gray70", "receive_pct" = "gray30"),
+    labels = c("Sought", "Received")
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5, family = "serif", size = 16),
+    axis.title = element_text(family = "serif", size = 12),
+    axis.text  = element_text(family = "serif", size = 8),
+    legend.title = element_text(family = "serif"),
+    legend.text = element_text(family = "serif")
+  )
+
+
+
+```
+
+```{r}
+seek_vars <- c(
+  "Funding1_1_1_1",  # Local government grants
+  "Funding1_1_2_1",  # State government grants
+  "Funding1_1_3_1",  # Federal government grants
+  "Funding1_1_4_1",  # Local government contracts / fee-for-service
+  "Funding1_1_5_1",  # State government contracts / fee-for-service
+  "Funding1_1_6_1",  # Federal government contracts / fee-for-service
+  "Funding1_1_7_1",  # Private foundation grants
+  "Funding1_1_8_1",  # Community foundation grants
+  "Funding1_1_9_1",  # Corporate grants / donations
+  "Funding1_1_10_1"  # United Way funding
+)
+
+receive_vars <- c(
+  "Funding1_2_1_1",  # Local government grants
+  "Funding1_2_2_1",  # State government grants
+  "Funding1_2_3_1",  # Federal government grants
+  "Funding1_2_4_1",  # Local government contracts / fee-for-service
+  "Funding1_2_5_1",  # State government contracts / fee-for-service
+  "Funding1_2_6_1",  # Federal government contracts / fee-for-service
+  "Funding1_2_7_1",  # Private foundation grants
+  "Funding1_2_8_1",  # Community foundation grants
+  "Funding1_2_9_1",  # Corporate grants / donations
+  "Funding1_2_10_1"  # United Way funding
+)
+
+labels <- c(
+  "Local Gov Grants",
+  "State Gov Grants",
+  "Federal Gov Grants",
+  "Local Gov Contracts",
+  "State Gov Contracts",
+  "Federal Gov Contracts",
+  "Private Foundation Grants",
+  "Community Foundation Grants",
+  "Corporate Grants/Donations",
+  "United Way Funding"
+)
+
+
+funding_df <- data.frame(
+  category = labels,
+  sought = sapply(ana_data[seek_vars], function(x) sum(x == 1, na.rm = TRUE)),
+  received = sapply(ana_data[receive_vars], function(x) sum(x == 1, na.rm = TRUE))
+)
+
+funding_df$conversion_rate <- with(funding_df, received / sought)
+
+plot_df <- funding_df %>%
+  select(category, sought, received) %>%
+  tidyr::pivot_longer(cols = c("sought", "received"),
+               names_to = "type",
+               values_to = "count")
+
+
+ggplot(plot_df, aes(x = reorder(category, count), y = count, fill = type)) +
+  geom_col(position = position_dodge(width = 0.7)) +
+  coord_flip() +
+  labs(
+    title = "Funding Sought vs Received",
+    x = "Funding Category",
+    y = "Number of Organizations",
+    fill = ""
+  ) +
+  scale_fill_manual(values = c("sought"="gray70","received"="gray30"),
+                    labels = c("Sought","Received")) +
+  theme_minimal(base_size = 14)
+
+
+
+ggplot(funding_df, 
+       aes(x = reorder(category, conversion_rate), 
+           y = conversion_rate)) +
+  geom_text(
+    aes(label = sprintf("%.1f%%", conversion_rate * 100)),
+    hjust = 0,
+    size = 4,
+    family = "serif"
+  ) +
+  coord_flip() +
+  ylim(0, max(funding_df$conversion_rate) * 1.2) + 
+  labs(
+    title = "Funding Conversion Rate",
+    x = "Funding Category",
+    y = ""
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.y = element_text(size = 10, family = "serif"),
+    plot.title = element_text(hjust = 0.5, family = "serif"),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank()
+  )
+
+
+```
+
+Nonprofit organizations exhibit extremely high revenue conversion rates from government contracts, private foundations, corporate giving, and United Way contributions—often close to or even exceeding 100%. This suggests that most of these funding streams are recurring or stable, and organizations receive income even without explicitly applying. By contrast, competitive government grants show noticeably lower conversion rates (≈84%–88%), reflecting the competitive and proposal-driven nature of these award programs. Overall, funding from contracts and established philanthropic partners appears far more predictable and reliable than competitive government grants.
+
+```{r}
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+# 8 个收入类别（1～8）
+categories <- 1:8
+
+# 3 个年份：2019（组1），2020（组2），2021（组3）
+years <- c(1, 2, 3)
+
+# 自动构建变量名 Finances_1_1_1, Finances_1_2_1, ...
+fin_vars <- c()
+
+for (yr in years) {
+  for (cat in categories) {
+    fin_vars <- c(fin_vars, paste0("Finances_", yr, "_", cat, "_1"))
+  }
+}
+
+# 过滤数据
+fin_data <- ana_data %>%
+  select(all_of(fin_vars))
+
+# 转成长格式：variable, value
+fin_long <- fin_data %>%
+  pivot_longer(
+    everything(),
+    names_to = "var",
+    values_to = "amount"
+  ) %>%
+  mutate(
+    year = case_when(
+      grepl("^Finances_1_", var) ~ "2019",
+      grepl("^Finances_2_", var) ~ "2020",
+      grepl("^Finances_3_", var) ~ "2021"
+    ),
+    category = gsub("^Finances_[1-3]_", "", var),
+    category = gsub("_1$", "", category),
+    category = as.integer(category)
+  )
+
+# 可读的类别名称
+cat_labels <- c(
+  "Government agencies",
+  "Self-paying participants",
+  "Gov third-party payers",
+  "Individual donations",
+  "In-kind gifts",
+  "Foundation/corporate grants",
+  "Corporate sponsorships",
+  "Other revenue"
+)
+
+fin_long$category_label <- cat_labels[fin_long$category]
+
+# 画箱线图（facet 展示 8 类 × 3 年）
+ggplot(fin_long, aes(x = year, y = amount)) +
+  geom_boxplot(fill = "steelblue", alpha = 0.6, outlier.alpha = 0.3) +
+  facet_wrap(~ category_label, scales = "free_y") +
+  labs(
+    title = "Revenue Distributions by Category (2019–2021)",
+    x = "Year",
+    y = "Amount ($)"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
+    strip.text = element_text(size = 12, face = "bold")
+  )
+
+
+```
+
+```{r}
+colors <- c("2019" = "#A6CEE3",   # 淡蓝
+            "2020" = "#FDBF6F",   # 淡橙
+            "2021" = "#B2DF8A")   # 淡绿
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+# 8 类收入
+categories <- 1:8
+years <- c("2019", "2020", "2021")
+
+# 建立所有变量名
+fin_vars <- c()
+for (yr in 1:3) {
+  for (cat in categories) {
+    fin_vars <- c(fin_vars, paste0("Finances_", yr, "_", cat, "_1"))
+  }
+}
+
+# 过滤数据
+fin_data <- ana_data %>% select(all_of(fin_vars))
+
+# 转成长格式
+fin_long <- fin_data %>%
+  pivot_longer(
+    everything(),
+    names_to = "var",
+    values_to = "amount"
+  ) %>%
+  mutate(
+    year = case_when(
+      grepl("^Finances_1_", var) ~ "2019",
+      grepl("^Finances_2_", var) ~ "2020",
+      grepl("^Finances_3_", var) ~ "2021"
+    ),
+    category = as.integer(gsub("^Finances_[1-3]_", "", var) %>% 
+                            gsub("_1$", "", .))
+  )
+
+# 类别标签
+cat_labels <- c(
+  "Government agencies",
+  "Self-paying participants",
+  "Gov third-party payers",
+  "Individual donations",
+  "In-kind gifts",
+  "Foundation/corporate grants",
+  "Corporate sponsorships",
+  "Other revenue"
+)
+
+fin_long$category_label <- cat_labels[fin_long$category]
+
+# 柔和颜色
+colors <- c("2019" = "#A6CEE3",
+            "2020" = "#FDBF6F",
+            "2021" = "#B2DF8A")
+
+for (i in categories) {
+  
+  df_plot <- fin_long %>% filter(category == i)
+  
+  p <- ggplot(df_plot, aes(x = year, y = amount, fill = year)) +
+    geom_boxplot(alpha = 0.8, outlier.alpha = 0.3) +
+    scale_fill_manual(values = colors) +
+    labs(
+      title = paste0("Revenue Distribution: ", cat_labels[i]),
+      x = "Year",
+      y = "Amount ($)"
+    ) +
+    theme_minimal(base_size = 14) +
+    theme(
+      plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
+      legend.position = "none"
+    )
+  
+  print(p)  # 显示在 RStudio / Jupyter Pane 中
+  
+  # 可选：保存图片
+  ggsave(
+    filename = paste0("finances_category_", i, ".png"),
+    plot = p,
+    width = 7,
+    height = 5,
+    dpi = 300
+  )
+}
+
+```
+
+```{r}
+library(dplyr)
+
+fin_summary <- fin_long %>%
+  group_by(category_label, year) %>%
+  summarise(
+    n = sum(!is.na(amount)),
+    min = min(amount, na.rm = TRUE),
+    Q1  = quantile(amount, 0.25, na.rm = TRUE),
+    median = median(amount, na.rm = TRUE),
+    mean = mean(amount, na.rm = TRUE),
+    Q3 = quantile(amount, 0.75, na.rm = TRUE),
+    max = max(amount, na.rm = TRUE)
+  )
+
+fin_summary
+
+```
+
+reserved
+
+```{r}
+
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+res_df <- ana_data %>% 
+  select(before = Reserves_1_1_1, now = Reserves_2_1_1) %>%
+  mutate(
+    before = as.numeric(before),
+    now = as.numeric(now)
+  ) %>%
+  pivot_longer(cols = everything(), names_to = "time", values_to = "reserve")
+
+ggplot(res_df, aes(x = reserve, fill = time)) +
+  geom_histogram(alpha = 0.6, position = "identity", bins = 50) +
+  scale_x_log10() +   # 金额分布非常右偏，用 log10 更清晰
+  labs(
+    title = "Distribution of Reserves: Before COVID vs Now",
+    x = "Reserves (log scale)",
+    y = "Count"
+  ) +
+  theme_minimal()
+
+
+```
+
+```{r}
+library(ggplot2)
+library(scales)
+library(dplyr)
+library(tidyr)
+
+res_df <- ana_data %>% 
+  select(before = Reserves_1_1_1, now = Reserves_2_1_1) %>%
+  mutate(
+    before = as.numeric(before),
+    now = as.numeric(now)
+  ) %>%
+  pivot_longer(cols = everything(), names_to = "time", values_to = "reserve")
+
+ggplot(res_df, aes(x = reserve, fill = time)) +
+  geom_histogram(alpha = 0.6, bins = 50, position = "identity") +
+  scale_x_continuous(labels = comma) +   # ⭐ 显示非科学记数法
+  scale_fill_manual(values = c("before" = "#8DA0CB", "now" = "#FC8D62"),
+                    labels = c("Before COVID", "Now")) +
+  labs(
+    title = "Distribution of Reserves Before COVID vs Now",
+    x = "Reserve Amount ($)",
+    y = "Count",
+    fill = ""
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16),
+    legend.position = "top"
+  )
+
+```
+
+```{r}
+library(ggplot2)
+library(scales)
+library(dplyr)
+library(tidyr)
+
+res_df <- ana_data %>% 
+  select(before = Reserves_1_1_1, now =Reserves_2_1_1) %>%
+  mutate(
+    before = as.numeric(before),
+    now = as.numeric(now)
+  ) %>%
+  pivot_longer(cols = everything(), names_to = "time", values_to = "reserve")
+
+gg <- ggplot(res_df, aes(x = reserve, fill = time)) +
+  geom_histogram(alpha = 0.6, bins = 50, position = "identity") +
+  scale_x_log10(labels = comma) +  
+  scale_fill_manual(values = c("before" ="#4C72B0", "now" = "#55A868"),
+                    labels = c("Before COVID", "Now")) +
+  labs(
+    title = "Distribution of Reserves",
+    x = "Reserve Amount (log scale)",
+    y = "Count",
+    fill = ""
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14),
+    legend.position = "top"
+  )
+
+```
+
+financechange
+
+```{r}
+# 选取所有 FinanceChanges_* 变量
+fc_vars <- names(ana_data)[startsWith(names(ana_data), "FinanceChanges_")]
+fc_vars
+
+fc_vars <- grep("FinanceChanges", names(ana_data), value = TRUE, ignore.case = TRUE)
+fc_vars
+
+
+# 转换为 0/1（如果 NA 视作 0）
+fc_df <- ana_data %>%
+  select(all_of(fc_vars)) %>% mutate(across(everything(), ~ ifelse(. == 1, 1, 0)))
+
+fc_counts <- colSums(fc_df)
+
+fc_counts
+
+
+fc_labels <- c(
+  "Drawn on reserves",
+  "Borrowed funds / credit line",
+  "Reduced staff benefits",
+  "Increased staff benefits",
+  "Increased overall expenses",
+  "Decreased overall expenses",
+  "Other"
+)
+
+fc_plot_df <- data.frame(
+  change = fc_labels,
+  count = fc_counts
+)
+
+ggplot(fc_plot_df, aes(x = reorder(change, count), y = count)) +
+  geom_col(fill = "#8DA0CB") +
+  geom_text(aes(label = count), hjust = -0.1, size = 4) +
+  coord_flip() +
+  labs(
+    title = "Financial Changes Since March 2020",
+    x = "",
+    y = "Number of Organizations"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5, family = "serif", size = 18),
+    axis.text = element_text(family = "serif", size = 12)
+  )
+
+
+```

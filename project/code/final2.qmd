@@ -1,0 +1,217 @@
+---
+title: "final2"
+format: html
+---
+
+## Loading Data
+
+```{r}
+rm(list=ls())
+source("pj.R")
+names(ana_data)
+ana_data$id <- 1:nrow(ana_data)
+```
+
+## Question 4
+
+PSM+Logistics Regression
+
+```{r}
+
+library(MatchIt)
+
+treat_var <- "FinanceChanges_1"
+psm_data <- ana_data %>% filter(!is.na(.data[[treat_var]]))
+table(psm_data$FinanceChanges_1, useNA = "ifany")
+
+psm_data <- psm_data %>%
+    select(all_of(treat_var),
+           starts_with("ProgDem_"),
+           id
+           )%>% drop_na() 
+
+
+table(psm_data$FinanceChanges_1, useNA = "ifany")
+
+m.out <- matchit(
+    FinanceChanges_1 ~ . - id,
+    data = psm_data,
+    method = "nearest",
+    ratio = 1
+)
+
+summary(m.out)
+```
+
+```{r}
+
+matched_ids <- match.data(m.out)$id
+matched_full <- ana_data %>% filter(id %in% matched_ids)
+
+model_lm <- lm(Finances_2_7_1 ~ FinanceChanges_1, data = matched_full)
+summary(model_lm)
+
+model_lm <- lm(Finances_3_7_1 ~ FinanceChanges_1, data = matched_full)
+summary(model_lm)
+
+model_lm <- lm(Finances_2_7_1+Finances_3_7_1 ~ FinanceChanges_1, data = matched_full)
+summary(model_lm)
+
+```
+
+```{r}
+matched_ids <- match.data(m.out)$id
+matched_full <- ana_data %>% filter(id %in% matched_ids)
+
+model_lm <- lm(Finances_2_7_1 ~ FinanceChanges_1, data = matched_full)
+summary(model_lm)
+
+lm_unmatched <- lm(Finances_3_7_1+Finances_2_7_1 ~ FinanceChanges_1, data = ana_data)
+summary(lm_unmatched)
+```
+
+```{r}
+
+library(MatchIt)
+
+treat_var <- "FinanceChanges_4"
+psm_data <- ana_data %>% filter(!is.na(.data[[treat_var]]))
+table(psm_data$FinanceChanges_4, useNA = "ifany")
+
+psm_data <- psm_data %>%
+    select(all_of(treat_var),
+           starts_with("ProgDem_"),
+           # starts_with("MeetDemand_"),
+           starts_with("LocChanges"),
+           id
+           )%>% drop_na() 
+
+
+table(psm_data$FinanceChanges_4, useNA = "ifany")
+
+m.out <- matchit(
+    FinanceChanges_4~ . - id,
+    data = psm_data,
+    method = "nearest",
+    ratio = 1
+)
+summary(m.out)
+
+# FinanceChanges_4 高度 相关 Finances_2_7_1 + Finances_3_7_1
+
+```
+
+```{r}
+matched_ids <- match.data(m.out)$id
+matched_full <- ana_data %>% filter(id %in% matched_ids)
+
+gm<-glm(ProgChanges_1 ~ FinanceChanges_4, data = matched_full, family = binomial)
+summary(gm)
+
+gm<-glm(ProgChanges_1 ~ FinanceChanges_4, data = ana_data, family = binomial)
+summary(gm)
+
+gm<-glm(ProgChanges_2 ~ FinanceChanges_4, data = matched_full, family = binomial)
+summary(gm)
+
+gm<-glm(ProgChanges_2 ~ FinanceChanges_4, data = ana_data, family = binomial)
+summary(gm)
+
+```
+
+在进行 PSM 时，我们使用了 PROGDEM\_\*（组织的服务对象）作为协变量，确保动用储备金的组织与未动用储备金的组织在服务人群结构上具有可比性。换句话说，我们排除了“因为组织服务不同人群而导致财务结果不同”的混淆影响。\
+
+因此，匹配后的分析所得到的 **企业赞助收入减少** 的估计，更接近于 “动用储备金本身导致的影响”，而不是目标人群不同导致的结果。
+
+```{r}
+matched_ids <- match.data(m.out)$id
+matched_full <- ana_data %>% filter(id %in% matched_ids)
+
+gm<-glm( FinanceChanges_4~ProgChanges_1, data = matched_full, family = binomial)
+summary(gm)
+
+gm<-glm( FinanceChanges_4~ProgChanges_1, data = ana_data, family = binomial)
+summary(gm)
+
+gm<-glm( FinanceChanges_4~ProgChanges_2, data = matched_full, family = binomial)
+summary(gm)
+
+gm<-glm( FinanceChanges_4~ProgChanges_2, data = ana_data, family = binomial)
+summary(gm)
+```
+
+```{r}
+library(MatchIt)
+
+treat_var <- "ProgChanges_1"
+psm_data <- ana_data %>% filter(!is.na(.data[[treat_var]]))
+table(psm_data$ProgChanges_1, useNA = "ifany")
+
+psm_data <- psm_data %>%
+    select(all_of(treat_var),
+           starts_with("ProgDem_"),
+           # starts_with("LocChanges"),
+           id
+           )%>% drop_na() 
+
+
+table(psm_data$ProgChanges_1, useNA = "ifany")
+
+m.out <- matchit(
+    ProgChanges_1 ~ . - id,
+    data = psm_data,
+    method = "nearest",
+    ratio = 1
+)
+
+summary(m.out)
+```
+
+```{r}
+matched_ids <- match.data(m.out)$id
+matched_full <- ana_data %>% filter(id %in% matched_ids)
+
+# _2_5_1, 3_1_1, 3_5_1, vs FinanceChanges_6 
+model_lm <- glm(ProgChanges_1 ~  Reserves_2_1_1, data = matched_full)
+summary(model_lm)
+
+lm_unmatched <- glm(ProgChanges_1 ~Reserves_2_1_1, data = ana_data)
+summary(lm_unmatched)
+```
+
+```{r}
+matched_ids <- match.data(m.out)$id
+matched_full <- ana_data %>% filter(id %in% matched_ids)
+
+model_lm <- glm(ProgChanges_1 ~  Finances_1_6_1, data = matched_full)
+summary(model_lm)
+
+lm_unmatched <- glm(ProgChanges_1 ~ Finances_1_6_1, data = ana_data)
+summary(lm_unmatched)
+```
+
+```{r}
+matched_ids <- match.data(m.out)$id
+matched_full <- ana_data %>% filter(id %in% matched_ids)
+
+model_lm <- glm(ProgChanges_1 ~  Finances_1_8_1, data = matched_full)
+summary(model_lm)
+
+
+lm_unmatched <- glm(ProgChanges_1 ~ Finances_1_8_1, data = ana_data)
+summary(lm_unmatched)
+```
+
+```{r}
+matched_ids <- match.data(m.out)$id
+matched_full <- ana_data %>% filter(id %in% matched_ids)
+
+glm1 <- glm(ProgChanges_1 ~  Finances_2_1_1, data = matched_full)
+summary(glm1)
+
+glm2 <- glm(ProgChanges_1 ~ Finances_2_1_1, data = ana_data)
+summary(glm2)
+```
+
+```         
+```
