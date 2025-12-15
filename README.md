@@ -19,4 +19,4 @@ I tested many approaches, but the final write-up focuses on:
 Enjoy browsing!
 
 > 🕒
-> This repository will remain private until **December 25, 11:59 PM**.
+> This repository will remain private until **December 15, 11:59 PM**.
