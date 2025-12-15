@@ -506,10 +506,10 @@ library(dplyr)
 library(tidyr)
 library(fixest)
 
-# 加 org_id（每个组织的固定效应编号）
+
 analysis_data <- analysis_data %>% mutate(org_id = dplyr::row_number())
 
-# reshape 财务数据
+
 tb_data <- analysis_data %>%
   pivot_longer(
     cols = starts_with("Finances_"),
@@ -525,7 +525,6 @@ tb_data <- analysis_data %>%
     ),
     source = as.numeric(source)
   ) %>%
-  # ⭐ 请确保这里列名真的存在 ⭐
   select(org_id, year, source, finance_amt, 
          ProgChanges_1, ProgChanges_2, ProgChanges_3, ProgChanges_4, ProgChanges_5,
          ProgChanges_6, ProgChanges_7, ProgChanges_8, ProgChanges_9, ProgChanges_10, ProgChanges_11)
@@ -558,10 +557,10 @@ library(dplyr)
 library(tidyr)
 library(fixest)
 
-# 加 org_id（每个组织的固定效应编号）
+
 analysis_data <- analysis_data %>% mutate(org_id = dplyr::row_number())
 
-# reshape 财务数据
+
 tb_data <- analysis_data %>%
   pivot_longer(
     cols = starts_with("Finances_"),
@@ -577,12 +576,11 @@ tb_data <- analysis_data %>%
     ),
     source = as.numeric(source)
   ) %>%
-  # ⭐ 请确保这里列名真的存在 ⭐
   select(org_id, year, source, finance_amt, 
          ProgChanges_1, ProgChanges_2, ProgChanges_3, ProgChanges_4, ProgChanges_5,
          ProgChanges_6, ProgChanges_7, ProgChanges_8, ProgChanges_9, ProgChanges_10, ProgChanges_11)
 
-# 使用指定 source (你之前选择了 source == 5)
+
 tb_source <- tb_data %>% filter(source == 6)
 
 
@@ -610,10 +608,10 @@ library(dplyr)
 library(tidyr)
 library(fixest)
 
-# 加 org_id（每个组织的固定效应编号）
+
 analysis_data <- analysis_data %>% mutate(org_id = dplyr::row_number())
 
-# reshape 财务数据
+
 tb_data <- analysis_data %>%
   pivot_longer(
     cols = starts_with("Finances_"),
@@ -629,12 +627,10 @@ tb_data <- analysis_data %>%
     ),
     source = as.numeric(source)
   ) %>%
-  # ⭐ 请确保这里列名真的存在 ⭐
   select(org_id, year, source, finance_amt, 
          ProgChanges_1, ProgChanges_2, ProgChanges_3, ProgChanges_4, ProgChanges_5,
          ProgChanges_6, ProgChanges_7, ProgChanges_8, ProgChanges_9, ProgChanges_10, ProgChanges_11)
 
-# 使用指定 source (你之前选择了 source == 5)
 tb_source <- tb_data %>% filter(source == 7)
 
 
@@ -874,7 +870,6 @@ plot_prog <- function(df, year) {
     theme_minimal() +
     theme(
       axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
-      # ⭐⭐ legend 区域设置（缩小）
       legend.position = "right",
       legend.text = element_text(size = 9),       # 字体小
       legend.title = element_text(size = 10),      # 标题小
@@ -942,17 +937,15 @@ library(dplyr)
 library(tidyr)
 analyze_year <- function(df_year) {
   
-  # ---- 计算原始的 5 分位数 ----
+
   q <- quantile(df_year$total_finance, probs = seq(0,1,0.2), na.rm = TRUE)
   
-  # ---- 去掉重复 quantile breaks ----
+ 
   q_unique <- unique(q)
-  
-  # 如果唯一 break 太少（例如全部一样），则退化成一组
+
   if (length(q_unique) <= 2) {
     df_year$bin <- factor("All")
   } else {
-    # 重新生成 labels 用于自适应
     labels <- paste0("Group ", seq_len(length(q_unique)-1))
     
     df_year <- df_year %>%
@@ -964,7 +957,6 @@ analyze_year <- function(df_year) {
       )
   }
   
-  # ---- ProgDem Top 5 ----
   prog_top <- df_year %>%
     select(bin, starts_with("ProgDem_")) %>%
     pivot_longer(cols = starts_with("ProgDem_"),
@@ -976,7 +968,7 @@ analyze_year <- function(df_year) {
     slice_head(n = 5) %>%
     mutate(type = "ProgDem")
   
-  # ---- GeoAreas Top 2 ----
+
   geo_top <- df_year %>%
     select(bin, starts_with("GeoAreas_")) %>%
     pivot_longer(cols = starts_with("GeoAreas_"),
