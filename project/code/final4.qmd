@@ -69,10 +69,9 @@ library(dplyr)
 library(tidyr)
 library(ggplot2)
 
-## 1. 取 ProgDem 变量
+
 prog_vars <- names(ana_data)[startsWith(names(ana_data), "ProgDem_")]
 
-## 2. 更友好的标签
 pretty_labels <- c(
   ProgDem_1      = "Children",
   ProgDem_2   = "Young Adults",
@@ -96,28 +95,27 @@ pretty_labels <- c(
   ProgDem_20  = "General Public"
 )
 
-## 3. 把 98 变成 NA
+## 把 98 变成 NA
 prog_df <- ana_data %>%
   select(all_of(prog_vars)) %>%
   mutate(across(everything(), ~ na_if(., 98)))
 
-## 4. 宽转长
+
 prog_long <- prog_df %>%
   pivot_longer(cols = everything(),
                names_to = "group",
                values_to = "category")
 
-## 5. 统计每一类(0/1/2)的人数
+
 prog_summary <- prog_long %>%
   filter(!is.na(category)) %>%
   group_by(group, category) %>%
   summarise(count = n(), .groups = "drop")
 
-## 6. 加上可读的 group 名称
+
 prog_summary <- prog_summary %>%
   mutate(pretty_group = pretty_labels[group])
 
-## 7. 为了排序（按总人数），算一下每个 group 总人数
 totals <- prog_summary %>%
   group_by(pretty_group) %>%
   summarise(total = sum(count), .groups = "drop")
@@ -127,7 +125,7 @@ prog_summary <- prog_summary %>%
   mutate(pretty_group = factor(pretty_group,
                                levels = totals$pretty_group[order(totals$total, decreasing = TRUE)]))
 
-## 8. 画“竖着”的堆叠柱状图
+
 g <- ggplot(
   prog_summary,
   aes(x = pretty_group, y = count, fill = factor(category))
@@ -241,13 +239,13 @@ for (group_name in names(group_rules)) {
     for (p in prog_vars) {
         for (f in fr_vars) {
             
-            # 构建交叉表
+
             tab <- table(df[[p]], df[[f]])
             
-            # 忽略空表
+ 
             if (nrow(tab) < 2 | ncol(tab) < 2) next
             
-            # 检查样本量
+      
             total_n <- sum(tab)
             if (total_n < min_count_threshold) {
                 message(sprintf(
@@ -260,7 +258,7 @@ for (group_name in names(group_rules)) {
             # χ² 检验
             test <- suppressWarnings(chisq.test(tab))
             
-            # ========= NEW PART: 判断显著方向 =========
+
             direction <- NA
            if (!is.na(test$p.value) && test$p.value < 0.05) {
                 # 计算每一组 ProgChange 的 FRChange 均值
@@ -288,7 +286,7 @@ for (group_name in names(group_rules)) {
                 p_value = test$p.value,
                 Significant = test$p.value < 0.05,
                 SampleSize = total_n,
-                Direction = direction   # ⭐ 新增字段
+                Direction = direction  
             )
         }
     }
