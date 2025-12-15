@@ -133,14 +133,14 @@ g <- ggplot(
   geom_col(width = 0.8, color = "white") +  # 竖向堆叠柱
   geom_text(
     aes(label = count),
-    position = position_stack(vjust = 0.5), # 每段中间放数字
+    position = position_stack(vjust = 0.5), 
     size = 3
   ) +
   scale_fill_manual(
     values = c(
-      "0" = "#d9d9d9",  # 不重点服务
-      "1" = "#1f78b4",  # 主服务群体
-      "2" = "#a6cee3"   # 次要服务群体
+      "0" = "#d9d9d9", 
+      "1" = "#1f78b4", 
+      "2" = "#a6cee3"   
     ),
     labels = c(
       "0" = "Not focused",
@@ -158,7 +158,7 @@ g <- ggplot(
   theme(
        text = element_text(family = "CMU Serif"),
     plot.title = element_text(hjust = 0.5, size = 14),
-    axis.text.x = element_text(angle = 40, hjust = 1)  # x 轴标签倾斜，方便读
+    axis.text.x = element_text(angle = 40, hjust = 1) 
   )
 
 ggsave("./graph/demo.png", g, width = 8,height = 5, dpi = 300)
@@ -229,7 +229,7 @@ fr_vars <- grep("^FRchanges_2_[0-9]+$", names(ana_data), value = TRUE)
 
 
 chi_list <- list()
-min_count_threshold <- 50  # 你要求的阈值
+min_count_threshold <- 50 # threshold
 
 
 for (group_name in names(group_rules)) {
@@ -255,13 +255,12 @@ for (group_name in names(group_rules)) {
                 next
             }
             
-            # χ² 检验
+            # χ²
             test <- suppressWarnings(chisq.test(tab))
             
 
             direction <- NA
            if (!is.na(test$p.value) && test$p.value < 0.05) {
-                # 计算每一组 ProgChange 的 FRChange 均值
                 means <- tapply(df[[f]], df[[p]], mean, na.rm = TRUE)
                 
                 # ProgChange=1 vs ProgChange=0
@@ -275,7 +274,7 @@ for (group_name in names(group_rules)) {
                     }
                 }
             }
-            # ============================================
+         
             
             chi_list[[length(chi_list)+1]] <- data.frame(
                 Group = group_name,
@@ -411,10 +410,3 @@ sig_interpret
 
 1,2,2_6, edu
 
-Across the three focal organizational groups (arts, education, and arts+education), we find a set of *highly structured and internally consistent associations* between program adjustments made after March 2020 and subsequent financial outcomes. In particular, several pairs of program changes that logically represent opposite actions—such as increasing versus reducing programs, or increasing versus reducing the number of people served—show *mirror-image statistical significance* when predicting pandemic-period revenue changes (FRChanges_2 variables).
-
-For example, organizations that **increased the number of programs (ProgChanges_1)** were significantly more likely to report revenue increases (FRChanges_2_1), while those that **reduced programs (ProgChanges_2)** were significantly more likely to experience revenue declines. The same pattern appears for **increasing vs. reducing the number of people served (ProgChanges_4 vs ProgChanges_5)**, both in the arts sector and in education.
-
-This bidirectional symmetry is also evident for more specific revenue sources, including **major gifts (FRChanges_2_3)**, **unrestricted foundation/corporate grants (FRChanges_2_11)**, **lower-income individual donations (FRChanges_2_5)**, and **unrestricted individual giving overall (FRChanges_2_6)**. In all cases, *expansive program actions* (e.g., reaching more people, offering more programs) correspond to *positive revenue shifts*, whereas *contractive program actions* align with *negative revenue shifts*.
-
-Such mirror-significant patterns are unlikely to arise from sampling variability alone. Instead, they demonstrate a **robust behavioral–financial coupling**: organizations that expanded their programmatic footprint during the pandemic—despite operational challenges—were systematically rewarded with stronger financial performance, while those that contracted programs experienced corresponding financial strain. This internal coherence across multiple revenue categories strengthens the interpretive confidence of the results and highlights program expansion as a key driver of financial resilience during the COVID-19 period.
