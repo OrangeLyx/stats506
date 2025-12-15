@@ -213,24 +213,24 @@ library(dplyr)
 library(ggplot2)
 library(RColorBrewer)
 
-# 1. 取 ProgChanges 变量
+
 prog_changes <- ana_data %>% 
   dplyr::select(starts_with("ProgChanges_")) %>%
   mutate_all(~ifelse(is.na(.), 0, .))
 
-# 2. 汇总
+
 prog_summary <- data.frame(
   change = names(prog_changes),
   count = colSums(prog_changes, na.rm = TRUE)
 )
 
-# 3. 添加清晰标签
+
 prog_summary$label <- prog_label_map[prog_summary$change]
 
-# 4. 设置彩色
+
 colors_prog <- brewer.pal(n = 12, "Set3")
 
-# 5. 绘图
+
 p_prog <- ggplot(prog_summary,
                  aes(x = reorder(label, count), y = count, fill = label)) +
   geom_col(width = 0.65) +
@@ -623,9 +623,7 @@ library(tidyr)
 library(ggplot2)
 library(RColorBrewer)
 
-# -----------------------
-# 1. 数据预处理
-# -----------------------
+
 fr_pre <- ana_data %>% 
   select(starts_with("FRCHANGES_1_")) %>% 
   mutate_all(~ifelse(is.na(.), 0, .))
@@ -643,9 +641,7 @@ fr_summary <- data.frame(
   post_2020 = post_counts
 )
 
-# -----------------------
-# 2. 更清晰的标签（修正重复项）
-# -----------------------
+
 fr_labels <- c(
   "Overall donations",
   "Cash donations < $250",
@@ -661,9 +657,7 @@ fr_labels <- c(
   "Corporate grants"
 )
 
-# -----------------------
-# 3. Pivot to long format
-# -----------------------
+
 plot_df <- fr_summary %>%
   pivot_longer(cols = c(pre_2019, post_2020),
                names_to = "period",
@@ -673,9 +667,7 @@ plot_df$period <- factor(plot_df$period,
                          levels = c("pre_2019", "post_2020"),
                          labels = c("2015–2019", "2020–Now"))
 
-# -----------------------
-# 4. 彩色柱状图
-# -----------------------
+
 color_palette <- brewer.pal(3, "Set2")[1:2]  # 两个好看的颜色
 
 p_fr <- ggplot(plot_df,
@@ -720,25 +712,25 @@ table(ana_data$FRchanges_1_1, ana_data$FRchanges_2_1)
 ```
 
 ```{r}
-# 提取一个变量的前后时期
+
 before <- ana_data$FRchanges_1_1
 after  <- ana_data$FRchanges_2_1
 
-# 去掉 NA
+
 valid_idx <- complete.cases(before, after)
 before <- before[valid_idx]
 after  <- after[valid_idx]
 
-# 转移矩阵
+
 trans_mat <- table(before, after)
 
-# 转成 long format
+
 # install.packages("reshape2")   # 若尚未安装
 library(reshape2)
 df_heat <- melt(trans_mat)
 colnames(df_heat) <- c("Before", "After", "Count")
 
-# 定义标签
+
 labels <- c(
   "1 Decreased significantly",
   "2 Decreased moderately",
@@ -750,7 +742,7 @@ labels <- c(
 df_heat$Before_label <- factor(df_heat$Before, levels = 1:5, labels = labels)
 df_heat$After_label  <- factor(df_heat$After,  levels = 1:5, labels = labels)
 
-# 画热力图
+
 g<-ggplot(df_heat, aes(x = After_label, y = Before_label, fill = Count)) +
   geom_tile(color = "white") +
   geom_text(aes(label = Count), size = 3) +
@@ -863,11 +855,11 @@ Bowker 检验告诉你：
 
 diff 分析告诉你：
 
-**变化方向是：所有捐赠类别均明显趋向下降。**
+变化方向是：所有捐赠类别均明显趋向下降。
 
 这两者结合得出：
 
-⭐⭐⭐ **疫情显著并广泛地削弱了非营利组织的所有捐赠来源，且下降趋势一致而普遍。**
+疫情显著并广泛地削弱了非营利组织的所有捐赠来源，且下降趋势一致而普遍
 
 这在报告里是非常有力的结论。
 
@@ -1033,13 +1025,13 @@ library(dplyr)
 library(tidyr)
 library(ggplot2)
 
-# 8 个收入类别（1～8）
+
 categories <- 1:8
 
 # 3 个年份：2019（组1），2020（组2），2021（组3）
 years <- c(1, 2, 3)
 
-# 自动构建变量名 Finances_1_1_1, Finances_1_2_1, ...
+
 fin_vars <- c()
 
 for (yr in years) {
@@ -1111,11 +1103,11 @@ library(dplyr)
 library(tidyr)
 library(ggplot2)
 
-# 8 类收入
+
 categories <- 1:8
 years <- c("2019", "2020", "2021")
 
-# 建立所有变量名
+
 fin_vars <- c()
 for (yr in 1:3) {
   for (cat in categories) {
@@ -1123,10 +1115,10 @@ for (yr in 1:3) {
   }
 }
 
-# 过滤数据
+
 fin_data <- ana_data %>% select(all_of(fin_vars))
 
-# 转成长格式
+
 fin_long <- fin_data %>%
   pivot_longer(
     everything(),
@@ -1143,7 +1135,7 @@ fin_long <- fin_data %>%
                             gsub("_1$", "", .))
   )
 
-# 类别标签
+
 cat_labels <- c(
   "Government agencies",
   "Self-paying participants",
@@ -1180,9 +1172,9 @@ for (i in categories) {
       legend.position = "none"
     )
   
-  print(p)  # 显示在 RStudio / Jupyter Pane 中
+  print(p) 
   
-  # 可选：保存图片
+
   ggsave(
     filename = paste0("finances_category_", i, ".png"),
     plot = p,
